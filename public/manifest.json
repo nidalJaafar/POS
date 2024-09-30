@@ -1,0 +1,46 @@
+{
+  "name": "Sunflower Crafts POS",
+  "short_name": "POS",
+  "theme_color": "#ffffff",
+  "background_color": "#ffffff",
+  "display": "standalone",
+  "orientation": "natural",
+  "scope": "/",
+  "start_url": "/",
+  "icons": [
+    {
+      "src": "/icons/logo-192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/icons/logo-256.png",
+      "type": "image/png",
+      "sizes": "256x256",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/icons/logo-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "maskable any"
+    }
+  ],
+  "splash_pages": null,
+  "screenshots": [
+    {
+      "src": "screenshot.png",
+      "sizes": "1242x930",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Sunflower Crafts POS"
+    },
+    {
+      "src": "screenshot-mobile.png",
+      "sizes": "563x906",
+      "type": "image/png",
+      "label": "Sunflower Crafts POS"
+    }
+  ]
+}
