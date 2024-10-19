@@ -1,37 +1,23 @@
 'use client'
 import { Item, Order } from '@/lib/dto'
-import { currencyFormat } from '@/lib/util'
 import 'chart.js/auto'
-import { useEffect, useState } from 'react'
 import { Bar } from 'react-chartjs-2'
 
 interface Params {
   items: Item[]
-  yearMap: Map<number, Map<number, Order[]>>
+  yearMap: [number, [number, Order[]][]][]
   labels: string[]
 }
 
 export default function StackedBarChart({ items, yearMap, labels }: Params) {
-  const [ChartComponent, setChartComponent] = useState<any>(null)
+  const convertedYearMap = new Map<number, Map<number, Order[]>>(
+    yearMap.map(([year, monthArray]) => [year, new Map(monthArray)])
+  )
+  const year = Array.from(convertedYearMap.keys()).sort((a, b) => b - a)[0]
 
-  useEffect(() => {
-    async function loadChart() {
-      const { Chart: ChartJS } = await import('chart.js')
-      const zoomPlugin = await import('chartjs-plugin-zoom')
-
-      ChartJS.register(zoomPlugin.default)
-      setChartComponent(() => Bar)
-    }
-
-    loadChart()
-  }, [])
-  if (!ChartComponent) return null
-  const year = Array.from(yearMap.keys()).sort((a, b) => b - a)[0]
-
-  // Create datasets for quantity sold and revenue
   const quantityDatasets = items.map((item) => {
     const data = labels.map((_, index) => {
-      const ordersPerMonth = yearMap.get(year)?.get(index) || []
+      const ordersPerMonth = convertedYearMap.get(year)?.get(index) || []
       return ordersPerMonth.reduce((total, order) => {
         const orderItem = order.items.find((i) => i.id === item.id)
         return total + (orderItem ? orderItem.quantity : 0)
@@ -52,7 +38,7 @@ export default function StackedBarChart({ items, yearMap, labels }: Params) {
 
   const revenueDatasets = items.map((item) => {
     const data = labels.map((_, index) => {
-      const ordersPerMonth = yearMap.get(year)?.get(index) || []
+      const ordersPerMonth = convertedYearMap.get(year)?.get(index) || []
       return ordersPerMonth.reduce((total, order) => {
         const orderItem = order.items.find((i) => i.id === item.id)
         return total + (orderItem ? orderItem.quantity * item.price : 0)
@@ -72,26 +58,16 @@ export default function StackedBarChart({ items, yearMap, labels }: Params) {
   })
 
   return (
-    <ChartComponent
+    <Bar
+      className="max-h-[75vh]"
       data={{
-        labels: labels, // Array of month labels
-        datasets: [...quantityDatasets, ...revenueDatasets], // Merge both quantity and revenue datasets
+        labels: labels,
+        datasets: [...quantityDatasets, ...revenueDatasets],
       }}
       options={{
         maintainAspectRatio: false,
         responsive: true,
         plugins: {
-          zoom: {
-            zoom: {
-              wheel: {
-                enabled: true,
-              },
-              pinch: {
-                enabled: true,
-              },
-              mode: 'xy',
-            },
-          },
           legend: {
             display: false,
           },
@@ -102,17 +78,8 @@ export default function StackedBarChart({ items, yearMap, labels }: Params) {
           tooltip: {
             callbacks: {
               title: (tooltipItems: { dataIndex: any }[]) => {
-                // Display month names
                 const monthIndex = tooltipItems[0].dataIndex
                 return labels[monthIndex]
-              },
-              label: (tooltipItem: {
-                dataset: { label: string }
-                raw: any
-              }) => {
-                const datasetLabel: string = tooltipItem.dataset.label
-                const value = tooltipItem.raw
-                return `${datasetLabel}: ${datasetLabel.includes('Revenue') ? currencyFormat(value) : value}`
               },
             },
           },
@@ -123,13 +90,15 @@ export default function StackedBarChart({ items, yearMap, labels }: Params) {
               display: true,
               text: 'Month',
             },
-            stacked: true, // Enable stacking on the x-axis
+            ticks: {
+              autoSkip: false,
+            },
+            stacked: true,
           },
           Quantity: {
             type: 'linear',
             position: 'left',
             ticks: {
-              beginAtZero: true,
               color: '#C7933D',
             },
             title: {
@@ -141,14 +110,13 @@ export default function StackedBarChart({ items, yearMap, labels }: Params) {
             type: 'linear',
             position: 'right',
             ticks: {
-              beginAtZero: true,
               color: '#F7C15B',
             },
             title: {
               display: true,
               text: 'Revenue',
             },
-            stacked: true, // Enable stacking on the y-axis
+            stacked: true,
           },
         },
       }}

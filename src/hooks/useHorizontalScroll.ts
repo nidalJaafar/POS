@@ -8,10 +8,10 @@ export default function useHorizontalScroll() {
     const el = elRef.current
     if (el) {
       const onWheel = (e: WheelEvent) => {
-        if (e.deltaY == 0) return
+        if (e.deltaY === 0 && e.deltaX === 0) return
         e.preventDefault()
         el.scrollTo({
-          left: el.scrollLeft + e.deltaY * 5,
+          left: el.scrollLeft + (e.deltaY !== 0 ? e.deltaY : e.deltaX) * 5,
           behavior: 'smooth',
         })
       }

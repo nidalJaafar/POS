@@ -1,19 +1,17 @@
 'use client'
 
-import React, { useEffect } from 'react'
+import { Order } from '@/lib/dto'
 import 'chart.js/auto'
 import { Line } from 'react-chartjs-2'
-import { Order } from '@/lib/dto'
 
 interface Params {
   labels: string[]
-  yearMap: Map<number, Map<number, Order[]>>
+  yearMap: [number, [number, Order[]][]][]
 }
 
 const colors = ['#C7933D', '#F7C15B']
 
 export default function LineChart({ labels, yearMap }: Params) {
-  useEffect(() => {}, [])
   const yearMonthOrder: {
     label: string
     data: number[]
@@ -21,10 +19,13 @@ export default function LineChart({ labels, yearMap }: Params) {
     borderColor: string
   }[] = []
   const sortedYearsMap = new Map<number, Map<number, Order[]>>()
-  Array.from(yearMap.keys())
+  const convertedYearMap = new Map<number, Map<number, Order[]>>(
+    yearMap.map(([year, monthArray]) => [year, new Map(monthArray)])
+  )
+  Array.from(convertedYearMap.keys())
     .sort((a, b) => b - a)
     .slice(0, 2)
-    .forEach((year) => sortedYearsMap.set(year, yearMap.get(year)!))
+    .forEach((year) => sortedYearsMap.set(year, convertedYearMap.get(year)!))
   sortedYearsMap.forEach((monthMap, year) => {
     const initialValue = new Array(12).fill(0)
     monthMap.forEach((orders, month) => {
@@ -53,6 +54,7 @@ export default function LineChart({ labels, yearMap }: Params) {
   }
   return (
     <Line
+      className="max-h-[75vh]"
       options={options}
       data={{
         labels,

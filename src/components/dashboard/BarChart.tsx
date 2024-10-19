@@ -1,18 +1,22 @@
 'use client'
 import useHorizontalScroll from '@/hooks/useHorizontalScroll'
 import { Item, Order } from '@/lib/dto'
-import 'chart.js/auto'
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { Bar } from 'react-chartjs-2'
+import 'chart.js/auto'
 
 interface Params {
   items: Item[]
   labels: string[]
-  yearMap: Map<number, Map<number, Order[]>>
+  yearMap: [number, [number, Order[]][]][]
 }
 
-export function BarChart({ items, yearMap, labels }: Params) {
-  const ref = useHorizontalScroll()
+function populateCharts(
+  items: Item[],
+  yearMap: Map<number, Map<number, Order[]>>,
+  labels: string[]
+) {
+  const charts: React.JSX.Element[] = []
   const itemMap = new Map<number, Item>()
   items.forEach((item) => {
     itemMap.set(item.id, item)
@@ -25,10 +29,7 @@ export function BarChart({ items, yearMap, labels }: Params) {
   })
 
   const orderMap = yearMap.get(Math.max.apply(Math, years))
-  if (!orderMap) return null
-
-  const charts: React.ReactElement[] = []
-
+  if (!orderMap) return charts
   orderMap.forEach((orders, month) => {
     const orderItemsMap = new Map<number, number>()
     orders.forEach((order) => {
@@ -40,7 +41,7 @@ export function BarChart({ items, yearMap, labels }: Params) {
       })
     })
     const mapArray = Array.from(orderItemsMap.entries())
-    if (mapArray.length < 3) return
+    if (mapArray.length < 3) return charts
 
     const sortedArray = mapArray
       .filter((a) => a[1] !== 0)
@@ -50,7 +51,6 @@ export function BarChart({ items, yearMap, labels }: Params) {
     charts.push(
       <Bar
         key={month}
-        className="h-[40vh] w-[50vw] sm:w-[20vw]"
         options={{
           maintainAspectRatio: false,
           responsive: true,
@@ -66,6 +66,14 @@ export function BarChart({ items, yearMap, labels }: Params) {
           scales: {
             y: {
               beginAtZero: true,
+              ticks: {
+                stepSize: 1,
+              },
+            },
+            x: {
+              ticks: {
+                autoSkip: false,
+              },
             },
           },
         }}
@@ -75,11 +83,9 @@ export function BarChart({ items, yearMap, labels }: Params) {
             {
               label: labels[month],
               data: sortedArray.map((item) => item[1]),
-              grouped: true,
-              maxBarThickness: 100,
-              barPercentage: 1,
-              categoryPercentage: 1,
               borderWidth: 1,
+              categoryPercentage: 1,
+              barPercentage: 0.6,
               borderColor: '#333333',
               backgroundColor: '#F7C15B',
             },
@@ -88,10 +94,22 @@ export function BarChart({ items, yearMap, labels }: Params) {
       />
     )
   })
+  return charts
+}
 
+export function BarChart({ items, yearMap, labels }: Params) {
+  const ref = useHorizontalScroll()
+  const convertedYearMap = new Map<number, Map<number, Order[]>>(
+    yearMap.map(([year, monthArray]) => [year, new Map(monthArray)])
+  )
+  const charts = populateCharts(items, convertedYearMap, labels)
   return (
-    <div className="no-scrollbar flex gap-10 overflow-x-scroll" ref={ref}>
-      {...charts}
+    <div className="flex h-full w-full overflow-x-scroll" ref={ref}>
+      {charts.map((chart, index) => (
+        <div className="mx-10 w-full sm:h-[50vh] sm:w-[20vw]" key={index}>
+          {chart}
+        </div>
+      ))}
     </div>
   )
 }

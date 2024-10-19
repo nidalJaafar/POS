@@ -38,19 +38,26 @@ export default async function page() {
     }
     yearMap.get(year)?.get(month)?.push(order)
   })
+  const serializedYearMap: [number, [number, Order[]][]][] = Array.from(
+    yearMap.entries()
+  ).map(([year, monthMap]) => [year, Array.from(monthMap.entries())])
   return (
-    <div className="flex flex-col items-center justify-center gap-16">
-      <div>
+    <div className="flex flex-col items-center justify-center gap-10 sm:max-w-[80vw]">
+      <div className="flex w-full flex-col items-center justify-center">
         <h1 className="text-xl font-bold">Top Orders Per Month</h1>
-        <BarChart labels={months} items={items} yearMap={yearMap} />
+        <BarChart labels={months} items={items} yearMap={serializedYearMap} />
       </div>
-      <div className="flex max-h-[40vh] w-full flex-col items-center justify-center sm:max-h-[75vh]">
+      <div className="flex h-full w-full flex-col items-center justify-center">
         <h1 className="text-xl font-bold">Annual Sales</h1>
-        <LineChart labels={months} yearMap={yearMap} />
+        <LineChart labels={months} yearMap={serializedYearMap} />
       </div>
-      <div className="flex max-h-[40vh] w-full flex-col items-center justify-center sm:max-h-[75vh]">
+      <div className="flex h-full w-full flex-col items-center justify-center">
         <h1 className="text-xl font-bold">Items Sold and Revenue Per Month</h1>
-        <StackedBarChart labels={months} items={items} yearMap={yearMap} />
+        <StackedBarChart
+          labels={months}
+          items={items}
+          yearMap={serializedYearMap}
+        />
       </div>
     </div>
   )

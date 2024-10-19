@@ -29,10 +29,11 @@ export async function deletePendingOrder(orderId: number) {
 export async function completePendingOrder(orderId: number) {
   await changeOrderStatus(orderId)
   const order = await getOrder(orderId)
-  await sendToThermalPrinter(order)
+  if (process.env.PRINTER_INTERFACE) await sendToThermalPrinter(order)
   revalidatePath('/orders')
   revalidatePath('/orders/completed')
   revalidatePath(`/orders/${orderId}`)
+  revalidatePath('/dashboard')
   redirect('/orders/completed', RedirectType.push)
 }
 
