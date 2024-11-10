@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@nextui-org/date-picker": "^2.1.8",
     "@reduxjs/toolkit": "^2.2.7",
     "@supabase/supabase-js": "^2.45.3",
     "chart.js": "^4.4.4",

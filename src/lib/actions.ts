@@ -14,8 +14,8 @@ import { revalidatePath } from 'next/cache'
 import { redirect, RedirectType } from 'next/navigation'
 import sendToThermalPrinter from './printer'
 
-export async function placeOrder(items: OrderItem[]) {
-  await addOrder(items)
+export async function placeOrder(items: OrderItem[], createdAt: string) {
+  await addOrder(items, createdAt)
   revalidatePath('/orders')
   redirect('/orders', RedirectType.push)
 }

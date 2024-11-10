@@ -3,7 +3,7 @@ import LineChart from '@/components/dashboard/LineChart'
 import StackedBarChart from '@/components/dashboard/StackedBarChart'
 import { Order } from '@/lib/dto'
 import {
-  getCompletedOrders,
+  getCompletedOrdersArray,
   getItems,
 } from '@/lib/supabase/supabase-operations'
 
@@ -23,7 +23,7 @@ const months = [
 ]
 
 export default async function page() {
-  const orders = await getCompletedOrders()
+  const orders = await getCompletedOrdersArray()
   const items = await getItems()
   const yearMap = new Map<number, Map<number, Order[]>>()
   orders.forEach((order) => {

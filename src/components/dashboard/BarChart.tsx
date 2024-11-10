@@ -41,7 +41,7 @@ function populateCharts(
       })
     })
     const mapArray = Array.from(orderItemsMap.entries())
-    if (mapArray.length < 3) return charts
+    if (!mapArray.length) return charts
 
     const sortedArray = mapArray
       .filter((a) => a[1] !== 0)

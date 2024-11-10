@@ -1,5 +1,21 @@
 import supabase from '@/lib/supabase/supabase'
 import { Item, Order, OrderItem } from '../dto'
+type OrdersQuery = {
+  id: number
+  status: string
+  created_at: string
+  items_orders: {
+    items: {
+      id: number
+      name: string
+      image: string
+      deleted: boolean
+      price: number
+      created_at: string
+    }
+    quantity: number
+  }[]
+}
 
 export async function getItems() {
   const { data: items, error } = await supabase
@@ -30,46 +46,76 @@ export async function upsertItem(item: {
   return items
 }
 
-async function getOrdersQuery(status?: string, id?: number): Promise<Order[]> {
+async function getOrdersQuery(
+  ascending: boolean,
+  id?: number,
+  status?: string,
+  orderBy?: string
+): Promise<OrdersQuery[]> {
   let ordersQuery = supabase
     .from('orders')
     .select(
       'id,status,created_at,items_orders(items(id,name,image,price,deleted,created_at),quantity)'
     )
-    .order('id', { ascending: true }) // Orders sorted by ID
 
   if (status) ordersQuery = ordersQuery.eq('status', status)
+  if (orderBy) ordersQuery = ordersQuery.order(orderBy, { ascending })
   if (id) ordersQuery = ordersQuery.eq('id', id)
 
   const { data, error } = await ordersQuery
 
-  type OrdersQuery = {
-    id: number
-    status: string
-    created_at: string
-    items_orders: {
-      items: {
-        id: number
-        name: string
-        image: string
-        deleted: boolean
-        price: number
-        created_at: string
-      }
-      quantity: number
-    }[]
-  }[]
-
   if (error) throw new Error('Error fetching items')
 
-  const orders: OrdersQuery = data as unknown as OrdersQuery
+  return data as unknown as OrdersQuery[]
+}
 
-  const mappedOrders: Order[] = orders.map((order) => ({
+function arrayMapper(orders: OrdersQuery[]): Order[] {
+  return orders.map((order) => ({
     id: order.id,
     status: order.status,
     created_at: order.created_at,
-    items: order.items_orders
-      .map((itemOrder) => ({
+    items: order.items_orders.map((itemOrder) => ({
+      id: itemOrder.items.id,
+      name: itemOrder.items.name,
+      image: itemOrder.items.image,
+      price: itemOrder.items.price,
+      deleted: itemOrder.items.deleted,
+      created_at: itemOrder.items.created_at,
+      quantity: itemOrder.quantity,
+    })),
+  }))
+}
+
+export async function getPendingOrders(): Promise<Order[]> {
+  return arrayMapper(await getOrdersQuery(true, undefined, 'pending', 'id'))
+}
+
+export async function getCompletedOrders(): Promise<[string, Order[]][]> {
+  return mapMapper(
+    await getOrdersQuery(false, undefined, 'completed', 'created_at')
+  )
+}
+export async function getCompletedOrdersArray(): Promise<Order[]> {
+  return arrayMapper(
+    await getOrdersQuery(false, undefined, 'completed', 'created_at')
+  )
+}
+
+function mapMapper(orders: OrdersQuery[]) {
+  const groupedOrders: { date: string; orders: Order[] }[] = []
+  const orderMap = new Map<string, Order[]>()
+
+  orders.forEach((order) => {
+    const dateKey = order.created_at.split('T')[0] // Taking just the date part
+
+    if (!orderMap.has(dateKey)) {
+      orderMap.set(dateKey, [])
+    }
+    orderMap.get(dateKey)?.push({
+      id: order.id,
+      status: order.status,
+      created_at: order.created_at,
+      items: order.items_orders.map((itemOrder) => ({
         id: itemOrder.items.id,
         name: itemOrder.items.name,
         image: itemOrder.items.image,
@@ -77,33 +123,20 @@ async function getOrdersQuery(status?: string, id?: number): Promise<Order[]> {
         deleted: itemOrder.items.deleted,
         created_at: itemOrder.items.created_at,
         quantity: itemOrder.quantity,
-      }))
-      .sort((a, b) => a.name.localeCompare(b.name)),
-  }))
-
-  return mappedOrders
-}
-
-export async function getPendingOrders(): Promise<Order[]> {
-  return getOrdersQuery('pending')
-}
-
-export async function getCompletedOrders(): Promise<Order[]> {
-  return getOrdersQuery('completed')
+      })),
+    })
+  })
+  return Array.from(orderMap)
 }
 
 export async function getOrder(orderId: number): Promise<Order> {
-  return getOrdersQuery(undefined, orderId)
-    .then((orders) => orders[0])
-    .catch((error) => {
-      throw error
-    })
+  return arrayMapper(await getOrdersQuery(true, orderId))[0]
 }
 
-export async function addOrder(items: OrderItem[]) {
+export async function addOrder(items: OrderItem[], createdAt: string) {
   const { data: orderData, error: orderError } = await supabase
     .from('orders')
-    .insert({ status: 'pending' })
+    .insert({ status: 'pending', created_at: createdAt })
     .select()
     .single()
 

@@ -1,7 +1,7 @@
 'use client'
 
 import { Order } from '@/lib/dto'
-import { currencyFormat } from '@/lib/util'
+import { currencyFormat, dateFormat } from '@/lib/util'
 import { useState } from 'react'
 import Grid from '../Grid'
 import ItemCard from '../item/ItemCard'
@@ -26,8 +26,8 @@ export default function OrderDetailsPage({ order }: Params) {
         {order.status === 'pending' && (
           <OrderControls order={order} handlePending={setPending} />
         )}
+        <p className="my-5">{dateFormat(order.created_at)}</p>
       </div>
-
       <p className="my-5 text-xl">Order Items</p>
       {pending ? (
         <div className="min-w-screen flex min-h-screen flex-col items-center justify-center">
@@ -43,7 +43,7 @@ export default function OrderDetailsPage({ order }: Params) {
             </>
           </Grid>
           <p className="mt-5 text-xl">
-            Total Price:
+            Total Price:{' '}
             {currencyFormat(
               order.items.reduce(
                 (acc, item) => acc + item.quantity * item.price,

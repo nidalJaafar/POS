@@ -1,9 +1,13 @@
+'use client'
+
 import { placeOrder } from '@/lib/actions'
 import { Item, OrderItem } from '@/lib/dto'
 import { XCircle } from 'lucide-react'
-import { useTransition, useEffect, useState, startTransition } from 'react'
+import { useTransition, useEffect, useState } from 'react'
 import { CSSTransition } from 'react-transition-group'
 import NewOrderItemCard from './NewOrderItemCard'
+import { getLocalTimeZone, now, today } from '@internationalized/date'
+import { DatePicker } from '@nextui-org/date-picker'
 
 interface Params {
   isMobile: boolean
@@ -36,6 +40,7 @@ function OrderMenu({
   setXPressed: (state: boolean) => void
   handlePending: (isPending: boolean) => void
 }) {
+  const [date, setDate] = useState(today(getLocalTimeZone()))
   const [isPending, startTransition] = useTransition()
   useEffect(() => {
     handlePending(isPending)
@@ -74,6 +79,14 @@ function OrderMenu({
             />
           </button>
         </div>
+        <DatePicker
+          classNames={{
+            calendar: 'bg-beige-light rounded-xl p-2',
+            selectorButton: 'outline-none',
+          }}
+          value={date}
+          onChange={(d) => setDate(d)}
+        />
         {selectedItems.map((item) => (
           <NewOrderItemCard
             item={item}
@@ -82,7 +95,9 @@ function OrderMenu({
           />
         ))}
         <button
-          onClick={() => startTransition(() => placeOrder(selectedItems))}
+          onClick={() =>
+            startTransition(() => placeOrder(selectedItems, date.toString()))
+          }
           className="min-w-full self-center rounded-xl bg-sunflowerYellow-light py-3 text-xl font-semibold"
         >
           Place Order

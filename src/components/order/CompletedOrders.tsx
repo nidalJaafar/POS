@@ -4,19 +4,33 @@ import React, { useEffect, useState } from 'react'
 import Grid from '../Grid'
 import { Order } from '@/lib/dto'
 import OrderCard from '../order-list/OrderCard'
+import { dateFormat } from '../../lib/util'
 
 interface Params {
-  orders: Order[]
+  orders: [string, Order[]][]
 }
 
 export default function CompletedOrders({ orders }: Params) {
   const [search, setSearch] = useState<string>('')
-  const [filteredOrders, setFilteredOrders] = useState<Order[]>(orders)
+  const [filteredOrders, setFilteredOrders] = useState<
+    { date: string; orders: Order[] }[]
+  >([])
 
   useEffect(() => {
-    setFilteredOrders(
-      orders.filter((order) => String(order.id).includes(search))
-    )
+    const lowercasedSearch = search.toLowerCase()
+
+    const filtered = orders.flatMap(([date, orderList]) => {
+      const filteredBySearch = orderList.filter((order) =>
+        String(order.id).includes(lowercasedSearch)
+      )
+
+      if (filteredBySearch.length > 0) {
+        return [{ date, orders: filteredBySearch }]
+      }
+      return []
+    })
+
+    setFilteredOrders(filtered)
   }, [orders, search])
 
   function handleSearch(e: React.ChangeEvent<HTMLInputElement>) {
@@ -32,13 +46,18 @@ export default function CompletedOrders({ orders }: Params) {
         onChange={handleSearch}
         placeholder="Search"
       />
-      <Grid className="w-full">
-        <>
-          {filteredOrders.map((order) => (
-            <OrderCard key={order.id} order={order} />
-          ))}
-        </>
-      </Grid>
+      {filteredOrders.map(({ date, orders }) => (
+        <div key={date}>
+          <h2 className="mb-5 text-2xl font-bold">{dateFormat(date)}</h2>
+          <Grid className="w-full">
+            <>
+              {orders.map((order) => (
+                <OrderCard key={order.id} order={order} />
+              ))}
+            </>
+          </Grid>
+        </div>
+      ))}
     </>
   )
 }
