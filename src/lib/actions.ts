@@ -29,7 +29,8 @@ export async function deletePendingOrder(orderId: number) {
 export async function completePendingOrder(orderId: number) {
   await changeOrderStatus(orderId)
   const order = await getOrder(orderId)
-  if (process.env.PRINTER_INTERFACE) await sendToThermalPrinter(order)
+  if (process.env.PRINTER_VID && process.env.PRINTER_PID)
+    await sendToThermalPrinter(order)
   revalidatePath('/orders')
   revalidatePath('/orders/completed')
   revalidatePath(`/orders/${orderId}`)

@@ -10,6 +10,16 @@ const nextConfig = {
       },
     ],
   },
+  webpack(config, { isServer }) {
+    if (isServer) {
+      config.externals.push({
+        usb: 'commonjs usb',
+        escpos: 'commonjs escpos',
+        'escpos-usb': 'commonjs escpos-usb',
+      })
+    }
+    return config
+  },
 }
 
 export default withPWA({
