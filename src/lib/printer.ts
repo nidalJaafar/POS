@@ -3,7 +3,6 @@ import { currencyFormat } from '@/lib/util'
 
 const escpos = require('escpos')
 escpos.USB = require('escpos-usb')
-const fs = require('fs')
 const path = require('path')
 
 export default async function sendToThermalPrinter(order: Order) {
@@ -61,12 +60,15 @@ export default async function sendToThermalPrinter(order: Order) {
       // Print QR code
       printer.qrimage(
         'https://www.instagram.com/sunflowercrafts1?igsh=MTR3c3lwdGp0amxibA==',
+        { type: 'png', mode: 'normal' },
         function (err: Error) {
           if (err) {
             console.error('QR code printing failed:', err)
           } else {
-            printer.cashdraw()
-            printer.cut()
+            printer.feed(5)
+            printer.cashdraw(2)
+            printer.beep(1, 1)
+            printer.cut('full')
             printer.close()
           }
         }

@@ -26,8 +26,8 @@ export default function OrderDetailsPage({ order }: Params) {
         {order.status === 'pending' && (
           <OrderControls order={order} handlePending={setPending} />
         )}
-        <p className="my-5">{dateFormat(order.created_at)}</p>
       </div>
+      <p className="my-5">{dateFormat(order.created_at)}</p>
       <p className="my-5 text-xl">Order Items</p>
       {pending ? (
         <div className="min-w-screen flex min-h-screen flex-col items-center justify-center">
