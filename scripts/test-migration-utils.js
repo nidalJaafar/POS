@@ -27,6 +27,26 @@ function testBuildLocalImagePathDeduplicatesNames() {
   assert.equal(result.localPath, '/uploads/sunflower-2.jpg')
 }
 
+function testBuildLocalImagePathSanitizesDecodedSeparators() {
+  const used = new Set()
+  const result = buildLocalImagePath(
+    'https://example.supabase.co/storage/v1/object/public/images/folder%5Csunflower%2Fcup.jpg',
+    used
+  )
+  assert.equal(result.filename, 'folder_sunflower_cup.jpg')
+  assert.equal(result.localPath, '/uploads/folder_sunflower_cup.jpg')
+}
+
+function testBuildLocalImagePathUsesDeterministicFallback() {
+  const used = new Set(['image.jpg'])
+  const result = buildLocalImagePath(
+    'https://example.supabase.co/storage/v1/object/public/images/',
+    used
+  )
+  assert.equal(result.filename, 'image-2.jpg')
+  assert.equal(result.localPath, '/uploads/image-2.jpg')
+}
+
 function testNormalizeSupabaseRowMapsSnakeCase() {
   const result = normalizeSupabaseRow({
     id: 1,
@@ -68,6 +88,8 @@ function testValidateExportRowsAcceptsValidRows() {
 
 testBuildLocalImagePathKeepsExtension()
 testBuildLocalImagePathDeduplicatesNames()
+testBuildLocalImagePathSanitizesDecodedSeparators()
+testBuildLocalImagePathUsesDeterministicFallback()
 testNormalizeSupabaseRowMapsSnakeCase()
 testValidateExportRowsRejectsMissingRequiredFields()
 testValidateExportRowsAcceptsValidRows()

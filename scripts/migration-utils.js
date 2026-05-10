@@ -45,18 +45,30 @@ function validateExportRows({ items, orders, itemsOrders }) {
 }
 
 function safeFilenameFromUrl(imageUrl) {
+  let filename = 'image.jpg'
+
   try {
     const parsed = new URL(imageUrl)
-    const filename = path.basename(decodeURIComponent(parsed.pathname))
-    return filename || `image-${Date.now()}.jpg`
+    if (!parsed.pathname.endsWith('/')) {
+      filename = parsed.pathname.split('/').pop() || filename
+    }
   } catch (_error) {
-    return path.basename(imageUrl) || `image-${Date.now()}.jpg`
+    filename = imageUrl.split('/').pop() || filename
   }
+
+  try {
+    filename = decodeURIComponent(filename)
+  } catch (_error) {
+    // Keep the original filename if it contains malformed percent escapes.
+  }
+
+  return filename.replace(/[\\/]/g, '_') || 'image.jpg'
 }
 
 function dedupeFilename(filename, usedFilenames) {
-  const ext = path.extname(filename) || '.jpg'
-  const base = path.basename(filename, ext) || 'image'
+  const extensionStart = filename.lastIndexOf('.')
+  const ext = extensionStart > 0 ? filename.slice(extensionStart) : '.jpg'
+  const base = extensionStart > 0 ? filename.slice(0, extensionStart) || 'image' : filename || 'image'
   let candidate = `${base}${ext}`
   let suffix = 2
 
