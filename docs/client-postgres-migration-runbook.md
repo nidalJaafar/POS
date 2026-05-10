@@ -1,0 +1,90 @@
+# Client PostgreSQL Migration Runbook
+
+This runbook moves Sunflower Crafts POS from Supabase to local PostgreSQL on the client's Windows laptop.
+
+## Before The Visit
+
+1. Confirm the refactored app builds locally.
+2. Get `SUPABASE_URL` and Supabase service-role key from the Supabase dashboard.
+3. Put those credentials in your local `.env.local` only while exporting.
+4. Run `npm run migration:export`.
+5. Confirm `migration-package/data/items.json`, `orders.json`, `items_orders.json`, `uploads/`, and `manifest.json` exist.
+6. Test restore into a clean local PostgreSQL database if available.
+7. Download the PostgreSQL Windows installer.
+8. Download the Node.js LTS Windows installer if the client's Node version is unknown.
+9. Prepare a USB drive or local copy containing the app folder, `migration-package/`, PostgreSQL installer, and Node.js installer.
+
+## PostgreSQL Windows Install
+
+1. Run the PostgreSQL installer as administrator.
+2. Keep the default port `5432`.
+3. Set a strong password and store it privately.
+4. Keep PostgreSQL Server selected.
+5. Finish installation.
+6. Open Windows Services.
+7. Confirm the PostgreSQL service startup type is `Automatic`.
+8. Start the service if it is not already running.
+
+## Database Setup
+
+Open Command Prompt or PowerShell in the app folder.
+
+Create `.env.local`:
+
+```env
+DATABASE_URL="postgresql://postgres:<password>@localhost:5432/sunflower_crafts_pos"
+```
+
+Create the database with pgAdmin or `createdb`:
+
+```powershell
+createdb -U postgres sunflower_crafts_pos
+```
+
+If `createdb` is not on PATH, use pgAdmin to create a database named `sunflower_crafts_pos`.
+
+## App Setup
+
+```powershell
+npm install
+npx prisma generate
+npm run db:migrate
+npm run migration:restore
+npm run build
+npm run start
+```
+
+Open the POS in the browser and verify pages load.
+
+## Startup Script
+
+Back up the existing VB startup script before editing it.
+
+Use this behavior:
+
+```vbscript
+Set WshShell = CreateObject("WScript.Shell")
+WScript.Sleep 20000
+WshShell.CurrentDirectory = "C:\path\to\sunflower-crafts-pos"
+WshShell.Run "cmd /c npm run start", 0, False
+```
+
+PostgreSQL should be started by Windows Services, not by this script.
+
+## Reboot Test
+
+1. Restart Windows.
+2. Confirm PostgreSQL service is running.
+3. Confirm the POS starts automatically.
+4. Confirm item images load from `/uploads`.
+5. Create a test order.
+6. Complete the test order.
+7. Confirm completed orders and dashboard still load.
+
+## Rollback
+
+1. Stop the new app process.
+2. Restore the old app folder or point the startup script back to the old folder.
+3. Restore the old `.env.local`.
+4. Reboot or manually start the previous app.
+5. Leave PostgreSQL installed but unused until the issue is fixed.
