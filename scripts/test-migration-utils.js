@@ -64,6 +64,25 @@ function testNormalizeSupabaseRowMapsSnakeCase() {
   })
 }
 
+function testNormalizeSupabaseRowKeepsItemFields() {
+  const result = normalizeSupabaseRow({
+    id: 1,
+    name: 'Cup',
+    image: '/uploads/cup.jpg',
+    price: 12.5,
+    deleted: false,
+    created_at: '2026-05-10T10:00:00.000Z',
+  })
+  assert.deepEqual(result, {
+    id: 1,
+    name: 'Cup',
+    image: '/uploads/cup.jpg',
+    price: 12.5,
+    deleted: false,
+    createdAt: '2026-05-10T10:00:00.000Z',
+  })
+}
+
 function testValidateExportRowsRejectsMissingRequiredFields() {
   assert.throws(
     () =>
@@ -91,6 +110,7 @@ testBuildLocalImagePathDeduplicatesNames()
 testBuildLocalImagePathSanitizesDecodedSeparators()
 testBuildLocalImagePathUsesDeterministicFallback()
 testNormalizeSupabaseRowMapsSnakeCase()
+testNormalizeSupabaseRowKeepsItemFields()
 testValidateExportRowsRejectsMissingRequiredFields()
 testValidateExportRowsAcceptsValidRows()
 
