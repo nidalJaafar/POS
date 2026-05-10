@@ -81,11 +81,24 @@ async function downloadImage(imageUrl, filename) {
     throw new Error(`Image from ${urlContext} exceeds ${MAX_IMAGE_BYTES} bytes`)
   }
 
-  const buffer = Buffer.from(await response.arrayBuffer())
-  if (buffer.length > MAX_IMAGE_BYTES) {
-    throw new Error(`Image from ${urlContext} exceeds ${MAX_IMAGE_BYTES} bytes`)
+  const reader = response.body.getReader()
+  const chunks = []
+  let totalBytes = 0
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+
+    totalBytes += value.length
+    if (totalBytes > MAX_IMAGE_BYTES) {
+      if (reader.cancel) await reader.cancel()
+      throw new Error(`Image from ${urlContext} exceeds ${MAX_IMAGE_BYTES} bytes`)
+    }
+
+    chunks.push(Buffer.from(value))
   }
 
+  const buffer = Buffer.concat(chunks, totalBytes)
   fs.writeFileSync(path.join(UPLOADS_DIR, filename), buffer)
 }
 
