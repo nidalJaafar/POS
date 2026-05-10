@@ -17,7 +17,7 @@ const {
   packagePath,
   readJson,
   validateExportRows,
-  validateLocalUploadReferences,
+  validateRestoredUploads,
 } = require('./migration-utils')
 
 const connectionString = assertLocalDatabaseUrl(process.env.DATABASE_URL)
@@ -60,6 +60,9 @@ async function run() {
   const manifest = readJson(packagePath('manifest.json'))
 
   validateExportRows({ items, orders, itemsOrders })
+
+  const copiedImages = copyUploads()
+  validateRestoredUploads({ items, uploadsDir: appUploadsDir(), copiedImages, manifest })
 
   console.log('Restoring local PostgreSQL database...')
 
@@ -108,8 +111,6 @@ async function run() {
   })
 
   await resetSequences()
-  const copiedImages = copyUploads()
-  validateLocalUploadReferences(items, appUploadsDir())
 
   const [itemCount, orderCount, orderItemCount] = await Promise.all([
     prisma.item.count(),
@@ -125,10 +126,6 @@ async function run() {
 
   if (itemCount !== manifest.counts.items || orderCount !== manifest.counts.orders || orderItemCount !== manifest.counts.itemsOrders) {
     throw new Error('Restored row counts do not match manifest counts')
-  }
-
-  if (copiedImages !== manifest.counts.images) {
-    throw new Error('Restored image count does not match manifest count')
   }
 }
 

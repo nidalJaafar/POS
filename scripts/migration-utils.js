@@ -166,6 +166,14 @@ function validateLocalUploadReferences(items, uploadsDir) {
   }
 }
 
+function validateRestoredUploads({ items, uploadsDir, copiedImages, manifest }) {
+  validateLocalUploadReferences(items, uploadsDir)
+
+  if (copiedImages !== manifest.counts.images) {
+    throw new Error('Restored image count does not match manifest count')
+  }
+}
+
 function copyUploadsAtomically(sourceDir, targetDir) {
   const filenames = listUploadFiles(sourceDir)
   const parentDir = path.dirname(targetDir)
@@ -216,5 +224,6 @@ module.exports = {
   readJson,
   validateExportRows,
   validateLocalUploadReferences,
+  validateRestoredUploads,
   writeJson,
 }

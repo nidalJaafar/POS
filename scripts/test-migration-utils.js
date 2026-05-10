@@ -10,6 +10,7 @@ const {
   listUploadFiles,
   normalizeSupabaseRow,
   validateLocalUploadReferences,
+  validateRestoredUploads,
   validateExportRows,
 } = require('./migration-utils')
 
@@ -195,6 +196,16 @@ function testValidateLocalUploadReferencesRejectsMissingUploadReferences() {
   })
 }
 
+function testValidateRestoredUploadsRejectsManifestCountMismatch() {
+  withTempDir((dir) => {
+    fs.writeFileSync(path.join(dir, 'cup.jpg'), '')
+    assert.throws(
+      () => validateRestoredUploads({ items: [{ id: 1, image: '/uploads/cup.jpg' }], uploadsDir: dir, copiedImages: 1, manifest: { counts: { images: 2 } } }),
+      /Restored image count does not match manifest count/
+    )
+  })
+}
+
 testBuildLocalImagePathKeepsExtension()
 testBuildLocalImagePathDeduplicatesNames()
 testBuildLocalImagePathSanitizesDecodedSeparators()
@@ -214,5 +225,6 @@ testListUploadFilesRejectsSymlinks()
 testValidateLocalUploadReferencesAcceptsExistingUploadReferences()
 testValidateLocalUploadReferencesIgnoresNonUploadReferences()
 testValidateLocalUploadReferencesRejectsMissingUploadReferences()
+testValidateRestoredUploadsRejectsManifestCountMismatch()
 
 console.log('migration-utils tests passed')
