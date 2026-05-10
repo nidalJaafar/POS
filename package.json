@@ -3,10 +3,15 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev -H 192.168.10.10",
+    "dev": "next dev -H 0.0.0.0",
     "build": "next build",
-    "start": "next start -H 192.168.10.10",
-    "lint": "next lint"
+    "start": "next start -H 0.0.0.0",
+    "lint": "next lint",
+    "db:migrate": "prisma migrate deploy",
+    "migration:test": "node scripts/test-migration-utils.js",
+    "migration:export": "node scripts/export-supabase-data.js",
+    "migration:restore": "node scripts/restore-local-postgres.js",
+    "migrate:remote-images": "node scripts/migrate-remote-images.js"
   },
   "dependencies": {
     "@nextui-org/date-picker": "^2.1.8",
@@ -14,6 +19,7 @@
     "@supabase/supabase-js": "^2.45.3",
     "chart.js": "^4.4.4",
     "chartjs-plugin-zoom": "^2.0.1",
+    "dotenv": "^17.4.2",
     "escpos": "^3.0.0-alpha.6",
     "escpos-usb": "^3.0.0-alpha.4",
     "hamburger-react": "^2.5.1",
