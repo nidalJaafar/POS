@@ -9,6 +9,7 @@ const {
   buildLocalImagePath,
   listUploadFiles,
   normalizeSupabaseRow,
+  validateLocalUploadReferences,
   validateExportRows,
 } = require('./migration-utils')
 
@@ -134,6 +135,13 @@ function testAssertLocalDatabaseUrlRejectsWrongDatabaseName() {
   )
 }
 
+function testAssertLocalDatabaseUrlRejectsHostQueryOverride() {
+  assert.throws(
+    () => assertLocalDatabaseUrl('postgresql://user:pass@localhost:5432/sunflower_crafts_pos?host=example.com'),
+    /DATABASE_URL must not include unsafe PostgreSQL query parameter: host/
+  )
+}
+
 function withTempDir(callback) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'migration-utils-'))
   try {
@@ -165,6 +173,28 @@ function testListUploadFilesRejectsSymlinks() {
   })
 }
 
+function testValidateLocalUploadReferencesAcceptsExistingUploadReferences() {
+  withTempDir((dir) => {
+    fs.writeFileSync(path.join(dir, 'cup.jpg'), '')
+    assert.doesNotThrow(() => validateLocalUploadReferences([{ id: 1, image: '/uploads/cup.jpg' }], dir))
+  })
+}
+
+function testValidateLocalUploadReferencesIgnoresNonUploadReferences() {
+  withTempDir((dir) => {
+    assert.doesNotThrow(() => validateLocalUploadReferences([{ id: 1, image: 'https://example.com/cup.jpg' }], dir))
+  })
+}
+
+function testValidateLocalUploadReferencesRejectsMissingUploadReferences() {
+  withTempDir((dir) => {
+    assert.throws(
+      () => validateLocalUploadReferences([{ id: 1, image: '/uploads/missing.jpg' }], dir),
+      /Item 1 references missing restored upload: \/uploads\/missing\.jpg/
+    )
+  })
+}
+
 testBuildLocalImagePathKeepsExtension()
 testBuildLocalImagePathDeduplicatesNames()
 testBuildLocalImagePathSanitizesDecodedSeparators()
@@ -177,8 +207,12 @@ testAssertLocalDatabaseUrlAcceptsLocalAppDatabase()
 testAssertLocalDatabaseUrlAcceptsIpv6LocalAppDatabase()
 testAssertLocalDatabaseUrlRejectsRemoteHost()
 testAssertLocalDatabaseUrlRejectsWrongDatabaseName()
+testAssertLocalDatabaseUrlRejectsHostQueryOverride()
 testListUploadFilesAcceptsRegularFiles()
 testListUploadFilesRejectsDirectories()
 testListUploadFilesRejectsSymlinks()
+testValidateLocalUploadReferencesAcceptsExistingUploadReferences()
+testValidateLocalUploadReferencesIgnoresNonUploadReferences()
+testValidateLocalUploadReferencesRejectsMissingUploadReferences()
 
 console.log('migration-utils tests passed')

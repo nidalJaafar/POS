@@ -6,6 +6,7 @@ const PACKAGE_DIR = path.join(process.cwd(), 'migration-package')
 const DATA_DIR = path.join(PACKAGE_DIR, 'data')
 const UPLOADS_DIR = path.join(PACKAGE_DIR, 'uploads')
 const LOCAL_DATABASE_HOSTS = new Set(['localhost', '127.0.0.1', '::1'])
+const UNSAFE_DATABASE_URL_QUERY_PARAMS = new Set(['host', 'port', 'socket', 'sslmode'])
 
 function ensureDir(dir) {
   fs.mkdirSync(dir, { recursive: true })
@@ -56,6 +57,12 @@ function assertLocalDatabaseUrl(connectionString) {
   }
 
   const hostname = databaseUrl.hostname.replace(/^\[(.*)]$/, '$1')
+
+  for (const key of databaseUrl.searchParams.keys()) {
+    if (UNSAFE_DATABASE_URL_QUERY_PARAMS.has(key.toLowerCase())) {
+      throw new Error(`DATABASE_URL must not include unsafe PostgreSQL query parameter: ${key}`)
+    }
+  }
 
   if (!LOCAL_DATABASE_HOSTS.has(hostname)) {
     throw new Error('DATABASE_URL must point to a local database host')
@@ -143,6 +150,22 @@ function listUploadFiles(uploadsDir) {
   return filenames
 }
 
+function validateLocalUploadReferences(items, uploadsDir) {
+  const uploadsRoot = path.resolve(uploadsDir)
+  const uploadsRootPrefix = `${uploadsRoot}${path.sep}`
+
+  for (const item of items) {
+    if (typeof item.image !== 'string' || !item.image.startsWith('/uploads/')) continue
+
+    const relativePath = item.image.slice('/uploads/'.length)
+    const uploadPath = path.resolve(uploadsDir, relativePath)
+
+    if (!relativePath || !uploadPath.startsWith(uploadsRootPrefix) || !fs.existsSync(uploadPath) || !fs.lstatSync(uploadPath).isFile()) {
+      throw new Error(`Item ${item.id ?? '(without id)'} references missing restored upload: ${item.image}`)
+    }
+  }
+}
+
 function copyUploadsAtomically(sourceDir, targetDir) {
   const filenames = listUploadFiles(sourceDir)
   const parentDir = path.dirname(targetDir)
@@ -192,5 +215,6 @@ module.exports = {
   packagePath,
   readJson,
   validateExportRows,
+  validateLocalUploadReferences,
   writeJson,
 }
