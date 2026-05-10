@@ -16,14 +16,29 @@ const {
 
 const supabaseUrl = process.env.SUPABASE_URL
 const supabaseKey = process.env.SUPABASE_API_KEY
+const MAX_IMAGE_BYTES = 25 * 1024 * 1024
 
 if (!supabaseUrl) throw new Error('SUPABASE_URL is not set')
 if (!supabaseKey) throw new Error('SUPABASE_API_KEY is not set')
+
+const supabaseOrigin = new URL(supabaseUrl).origin
 
 function headers() {
   return {
     apikey: supabaseKey,
     Authorization: `Bearer ${supabaseKey}`,
+  }
+}
+
+function isSupabaseUrl(imageUrl) {
+  return new URL(encodeURI(imageUrl)).origin === supabaseOrigin
+}
+
+function safeUrlContext(imageUrl) {
+  try {
+    return new URL(encodeURI(imageUrl)).origin
+  } catch (_error) {
+    return 'unparseable image URL'
   }
 }
 
@@ -55,11 +70,22 @@ async function fetchTable(tableName) {
 
 async function downloadImage(imageUrl, filename) {
   const encodedUrl = encodeURI(imageUrl)
-  const response = await fetch(encodedUrl, { headers: imageUrl.startsWith(supabaseUrl) ? headers() : undefined })
+  const response = await fetch(encodedUrl, { headers: isSupabaseUrl(imageUrl) ? headers() : undefined })
+  const urlContext = safeUrlContext(imageUrl)
   if (!response.ok) {
-    throw new Error(`Failed to download ${encodedUrl}: ${response.status} ${response.statusText}`)
+    throw new Error(`Failed to download from ${urlContext}: ${response.status} ${response.statusText}`)
   }
+
+  const contentLength = response.headers.get('content-length')
+  if (contentLength && Number(contentLength) > MAX_IMAGE_BYTES) {
+    throw new Error(`Image from ${urlContext} exceeds ${MAX_IMAGE_BYTES} bytes`)
+  }
+
   const buffer = Buffer.from(await response.arrayBuffer())
+  if (buffer.length > MAX_IMAGE_BYTES) {
+    throw new Error(`Image from ${urlContext} exceeds ${MAX_IMAGE_BYTES} bytes`)
+  }
+
   fs.writeFileSync(path.join(UPLOADS_DIR, filename), buffer)
 }
 
@@ -101,7 +127,7 @@ async function run() {
   writeJson(path.join(DATA_DIR, 'orders.json'), orders)
   writeJson(path.join(DATA_DIR, 'items_orders.json'), itemsOrders)
   writeJson(packagePath('manifest.json'), {
-    exportedAt: new Date().toISOString(),
+    exportedAt: process.env.MIGRATION_EXPORTED_AT || new Date().toISOString(),
     supabaseUrl,
     counts: {
       items: migratedItems.length,
