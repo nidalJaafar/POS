@@ -5,6 +5,7 @@ const path = require('path')
 const PACKAGE_DIR = path.join(process.cwd(), 'migration-package')
 const DATA_DIR = path.join(PACKAGE_DIR, 'data')
 const UPLOADS_DIR = path.join(PACKAGE_DIR, 'uploads')
+const LOCAL_DATABASE_HOSTS = new Set(['localhost', '127.0.0.1', '::1'])
 
 function ensureDir(dir) {
   fs.mkdirSync(dir, { recursive: true })
@@ -42,6 +43,29 @@ function validateExportRows({ items, orders, itemsOrders }) {
   validateRows('items', items, ['id', 'name', 'image', 'price'])
   validateRows('orders', orders, ['id', 'status'])
   validateRows('items_orders', itemsOrders, ['id', 'order_id', 'item_id', 'quantity'])
+}
+
+function assertLocalDatabaseUrl(connectionString) {
+  if (!connectionString) throw new Error('DATABASE_URL is not set')
+
+  let databaseUrl
+  try {
+    databaseUrl = new URL(connectionString)
+  } catch (_error) {
+    throw new Error('DATABASE_URL must be a valid PostgreSQL connection URL')
+  }
+
+  const hostname = databaseUrl.hostname.replace(/^\[(.*)]$/, '$1')
+
+  if (!LOCAL_DATABASE_HOSTS.has(hostname)) {
+    throw new Error('DATABASE_URL must point to a local database host')
+  }
+
+  if (!databaseUrl.pathname.endsWith('/sunflower_crafts_pos')) {
+    throw new Error('DATABASE_URL database name must be sunflower_crafts_pos')
+  }
+
+  return connectionString
 }
 
 function safeFilenameFromUrl(imageUrl) {
@@ -108,14 +132,62 @@ function appUploadsDir() {
   return path.join(process.cwd(), 'public', 'uploads')
 }
 
+function listUploadFiles(uploadsDir) {
+  const filenames = fs.readdirSync(uploadsDir).sort()
+  for (const filename of filenames) {
+    const filePath = path.join(uploadsDir, filename)
+    if (!fs.lstatSync(filePath).isFile()) {
+      throw new Error(`Migration upload entry must be a regular file: ${filePath}`)
+    }
+  }
+  return filenames
+}
+
+function copyUploadsAtomically(sourceDir, targetDir) {
+  const filenames = listUploadFiles(sourceDir)
+  const parentDir = path.dirname(targetDir)
+  const targetName = path.basename(targetDir)
+  const suffix = `${process.pid}-${Date.now()}`
+  const tempDir = path.join(parentDir, `.${targetName}.tmp-${suffix}`)
+  const backupDir = path.join(parentDir, `.${targetName}.backup-${suffix}`)
+  let movedExistingTarget = false
+
+  ensureDir(parentDir)
+
+  try {
+    ensureDir(tempDir)
+    for (const filename of filenames) {
+      fs.copyFileSync(path.join(sourceDir, filename), path.join(tempDir, filename))
+    }
+
+    if (fs.existsSync(targetDir)) {
+      fs.renameSync(targetDir, backupDir)
+      movedExistingTarget = true
+    }
+
+    fs.renameSync(tempDir, targetDir)
+    fs.rmSync(backupDir, { recursive: true, force: true })
+    return filenames.length
+  } catch (error) {
+    fs.rmSync(tempDir, { recursive: true, force: true })
+    if (movedExistingTarget && !fs.existsSync(targetDir) && fs.existsSync(backupDir)) {
+      fs.renameSync(backupDir, targetDir)
+    }
+    throw error
+  }
+}
+
 module.exports = {
   PACKAGE_DIR,
   DATA_DIR,
   UPLOADS_DIR,
   appUploadsDir,
+  assertLocalDatabaseUrl,
   buildLocalImagePath,
+  copyUploadsAtomically,
   ensureDir,
   ensurePackageDirs,
+  listUploadFiles,
   normalizeSupabaseRow,
   packagePath,
   readJson,

@@ -1,8 +1,13 @@
 /* eslint-disable no-console */
 const assert = require('assert/strict')
+const fs = require('fs')
+const os = require('os')
+const path = require('path')
 
 const {
+  assertLocalDatabaseUrl,
   buildLocalImagePath,
+  listUploadFiles,
   normalizeSupabaseRow,
   validateExportRows,
 } = require('./migration-utils')
@@ -105,6 +110,61 @@ function testValidateExportRowsAcceptsValidRows() {
   )
 }
 
+function testAssertLocalDatabaseUrlAcceptsLocalAppDatabase() {
+  const result = assertLocalDatabaseUrl('postgresql://user:pass@localhost:5432/sunflower_crafts_pos')
+  assert.equal(result, 'postgresql://user:pass@localhost:5432/sunflower_crafts_pos')
+}
+
+function testAssertLocalDatabaseUrlAcceptsIpv6LocalAppDatabase() {
+  const result = assertLocalDatabaseUrl('postgresql://user:pass@[::1]:5432/sunflower_crafts_pos')
+  assert.equal(result, 'postgresql://user:pass@[::1]:5432/sunflower_crafts_pos')
+}
+
+function testAssertLocalDatabaseUrlRejectsRemoteHost() {
+  assert.throws(
+    () => assertLocalDatabaseUrl('postgresql://user:pass@example.com:5432/sunflower_crafts_pos'),
+    /DATABASE_URL must point to a local database host/
+  )
+}
+
+function testAssertLocalDatabaseUrlRejectsWrongDatabaseName() {
+  assert.throws(
+    () => assertLocalDatabaseUrl('postgresql://user:pass@localhost:5432/postgres'),
+    /DATABASE_URL database name must be sunflower_crafts_pos/
+  )
+}
+
+function withTempDir(callback) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'migration-utils-'))
+  try {
+    callback(dir)
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
+}
+
+function testListUploadFilesAcceptsRegularFiles() {
+  withTempDir((dir) => {
+    fs.writeFileSync(path.join(dir, 'cup.jpg'), '')
+    assert.deepEqual(listUploadFiles(dir), ['cup.jpg'])
+  })
+}
+
+function testListUploadFilesRejectsDirectories() {
+  withTempDir((dir) => {
+    fs.mkdirSync(path.join(dir, 'nested'))
+    assert.throws(() => listUploadFiles(dir), /Migration upload entry must be a regular file/)
+  })
+}
+
+function testListUploadFilesRejectsSymlinks() {
+  withTempDir((dir) => {
+    fs.writeFileSync(path.join(dir, 'cup.jpg'), '')
+    fs.symlinkSync(path.join(dir, 'cup.jpg'), path.join(dir, 'cup-link.jpg'))
+    assert.throws(() => listUploadFiles(dir), /Migration upload entry must be a regular file/)
+  })
+}
+
 testBuildLocalImagePathKeepsExtension()
 testBuildLocalImagePathDeduplicatesNames()
 testBuildLocalImagePathSanitizesDecodedSeparators()
@@ -113,5 +173,12 @@ testNormalizeSupabaseRowMapsSnakeCase()
 testNormalizeSupabaseRowKeepsItemFields()
 testValidateExportRowsRejectsMissingRequiredFields()
 testValidateExportRowsAcceptsValidRows()
+testAssertLocalDatabaseUrlAcceptsLocalAppDatabase()
+testAssertLocalDatabaseUrlAcceptsIpv6LocalAppDatabase()
+testAssertLocalDatabaseUrlRejectsRemoteHost()
+testAssertLocalDatabaseUrlRejectsWrongDatabaseName()
+testListUploadFilesAcceptsRegularFiles()
+testListUploadFilesRejectsDirectories()
+testListUploadFilesRejectsSymlinks()
 
 console.log('migration-utils tests passed')

@@ -11,15 +11,15 @@ const {
   DATA_DIR,
   UPLOADS_DIR,
   appUploadsDir,
-  ensureDir,
+  assertLocalDatabaseUrl,
+  copyUploadsAtomically,
   normalizeSupabaseRow,
   packagePath,
   readJson,
   validateExportRows,
 } = require('./migration-utils')
 
-const connectionString = process.env.DATABASE_URL
-if (!connectionString) throw new Error('DATABASE_URL is not set')
+const connectionString = assertLocalDatabaseUrl(process.env.DATABASE_URL)
 
 const pool = new Pool({ connectionString })
 const adapter = new PrismaPg(pool)
@@ -41,18 +41,13 @@ function assertPackageExists() {
 }
 
 function copyUploads() {
-  ensureDir(appUploadsDir())
-  const filenames = fs.readdirSync(UPLOADS_DIR)
-  for (const filename of filenames) {
-    fs.copyFileSync(path.join(UPLOADS_DIR, filename), path.join(appUploadsDir(), filename))
-  }
-  return filenames.length
+  return copyUploadsAtomically(UPLOADS_DIR, appUploadsDir())
 }
 
 async function resetSequences() {
-  await prisma.$executeRawUnsafe("SELECT setval(pg_get_serial_sequence('items', 'id'), COALESCE((SELECT MAX(id) FROM items), 1), true)")
-  await prisma.$executeRawUnsafe("SELECT setval(pg_get_serial_sequence('orders', 'id'), COALESCE((SELECT MAX(id) FROM orders), 1), true)")
-  await prisma.$executeRawUnsafe("SELECT setval(pg_get_serial_sequence('items_orders', 'id'), COALESCE((SELECT MAX(id) FROM items_orders), 1), true)")
+  await prisma.$executeRawUnsafe("SELECT setval(pg_get_serial_sequence('items', 'id'), COALESCE((SELECT MAX(id) FROM items), 1), (SELECT COUNT(*) > 0 FROM items))")
+  await prisma.$executeRawUnsafe("SELECT setval(pg_get_serial_sequence('orders', 'id'), COALESCE((SELECT MAX(id) FROM orders), 1), (SELECT COUNT(*) > 0 FROM orders))")
+  await prisma.$executeRawUnsafe("SELECT setval(pg_get_serial_sequence('items_orders', 'id'), COALESCE((SELECT MAX(id) FROM items_orders), 1), (SELECT COUNT(*) > 0 FROM items_orders))")
 }
 
 async function run() {
