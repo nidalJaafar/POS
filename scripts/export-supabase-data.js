@@ -78,6 +78,7 @@ async function downloadImage(imageUrl, filename) {
 
   const contentLength = response.headers.get('content-length')
   if (contentLength && Number(contentLength) > MAX_IMAGE_BYTES) {
+    await response.body?.cancel()
     throw new Error(`Image from ${urlContext} exceeds ${MAX_IMAGE_BYTES} bytes`)
   }
 
