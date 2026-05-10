@@ -7,6 +7,7 @@ const path = require('path')
 const {
   assertLocalDatabaseUrl,
   buildLocalImagePath,
+  buildSafeSourceDescriptor,
   listUploadFiles,
   normalizeSupabaseRow,
   validateLocalUploadReferences,
@@ -136,11 +137,26 @@ function testAssertLocalDatabaseUrlRejectsWrongDatabaseName() {
   )
 }
 
+function testAssertLocalDatabaseUrlRejectsNestedDatabasePathEndingWithAppName() {
+  assert.throws(
+    () => assertLocalDatabaseUrl('postgresql://postgres:pw@localhost:5432/other/sunflower_crafts_pos'),
+    /DATABASE_URL database name must be sunflower_crafts_pos/
+  )
+}
+
 function testAssertLocalDatabaseUrlRejectsHostQueryOverride() {
   assert.throws(
     () => assertLocalDatabaseUrl('postgresql://user:pass@localhost:5432/sunflower_crafts_pos?host=example.com'),
     /DATABASE_URL must not include unsafe PostgreSQL query parameter: host/
   )
+}
+
+function testBuildSafeSourceDescriptorDropsCredentialsQueryAndHash() {
+  const result = buildSafeSourceDescriptor('https://user:secret@example.supabase.co/storage/v1/object/sign/items/cup.jpg?token=secret#fragment')
+  assert.deepEqual(result, {
+    origin: 'https://example.supabase.co',
+    pathname: '/storage/v1/object/sign/items/cup.jpg',
+  })
 }
 
 function withTempDir(callback) {
@@ -218,7 +234,9 @@ testAssertLocalDatabaseUrlAcceptsLocalAppDatabase()
 testAssertLocalDatabaseUrlAcceptsIpv6LocalAppDatabase()
 testAssertLocalDatabaseUrlRejectsRemoteHost()
 testAssertLocalDatabaseUrlRejectsWrongDatabaseName()
+testAssertLocalDatabaseUrlRejectsNestedDatabasePathEndingWithAppName()
 testAssertLocalDatabaseUrlRejectsHostQueryOverride()
+testBuildSafeSourceDescriptorDropsCredentialsQueryAndHash()
 testListUploadFilesAcceptsRegularFiles()
 testListUploadFilesRejectsDirectories()
 testListUploadFilesRejectsSymlinks()

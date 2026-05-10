@@ -8,6 +8,7 @@ const {
   DATA_DIR,
   UPLOADS_DIR,
   buildLocalImagePath,
+  buildSafeSourceDescriptor,
   ensurePackageDirs,
   packagePath,
   validateExportRows,
@@ -128,7 +129,7 @@ async function run() {
 
     try {
       await downloadImage(source, filename)
-      imageMappings.push({ itemId: item.id, source, filename, localPath })
+      imageMappings.push({ itemId: item.id, source: buildSafeSourceDescriptor(source), filename, localPath })
       migratedItems.push({ ...item, image: localPath })
       console.log(`Downloaded image for item ${item.id}: ${localPath}`)
     } catch (error) {

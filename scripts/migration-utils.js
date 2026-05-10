@@ -68,7 +68,14 @@ function assertLocalDatabaseUrl(connectionString) {
     throw new Error('DATABASE_URL must point to a local database host')
   }
 
-  if (!databaseUrl.pathname.endsWith('/sunflower_crafts_pos')) {
+  let databasePath
+  try {
+    databasePath = decodeURIComponent(databaseUrl.pathname)
+  } catch (_error) {
+    throw new Error('DATABASE_URL database name must be sunflower_crafts_pos')
+  }
+
+  if (databasePath !== '/sunflower_crafts_pos') {
     throw new Error('DATABASE_URL database name must be sunflower_crafts_pos')
   }
 
@@ -117,6 +124,21 @@ function buildLocalImagePath(imageUrl, usedFilenames) {
   return {
     filename,
     localPath: `/uploads/${filename}`,
+  }
+}
+
+function buildSafeSourceDescriptor(imageUrl) {
+  try {
+    const parsed = new URL(encodeURI(imageUrl))
+    return {
+      origin: parsed.origin,
+      pathname: parsed.pathname,
+    }
+  } catch (_error) {
+    return {
+      origin: null,
+      pathname: 'unparseable image URL',
+    }
   }
 }
 
@@ -215,6 +237,7 @@ module.exports = {
   appUploadsDir,
   assertLocalDatabaseUrl,
   buildLocalImagePath,
+  buildSafeSourceDescriptor,
   copyUploadsAtomically,
   ensureDir,
   ensurePackageDirs,
