@@ -8,8 +8,14 @@ This runbook moves Sunflower Crafts POS from Supabase to local PostgreSQL on the
 2. Get `SUPABASE_URL` and Supabase service-role key from the Supabase dashboard.
 3. Put those credentials in your local `.env.local` as `SUPABASE_URL` and `SUPABASE_API_KEY` only while exporting.
 4. Run `npm run migration:export`.
-5. Confirm `migration-package/data/items.json`, `orders.json`, `items_orders.json`, `uploads/`, and `manifest.json` exist.
-6. Test restore into a clean local PostgreSQL database if available.
+5. Confirm `migration-package/data/items.json`, `orders.json`, `items_orders.json`, `uploads/`, and `manifest.json` exist. The export now refuses packages with broken references (order lines pointing at missing orders or items, the same item twice in one order), so a successful export is restorable.
+6. On your development machine (bash), test the restore against the throwaway test database (needs Docker or Podman). Nothing here touches a real database:
+
+   ```bash
+   npm run test:db:up
+   DATABASE_URL="$(npm run -s test:db:url)" UPLOADS_DIR=/tmp/restore-check npm run migration:restore -- --replace
+   npm run test:db:down
+   ```
 7. Download the PostgreSQL Windows installer.
 8. Download the Node.js LTS Windows installer if the client's Node version is unknown.
 9. Prepare a USB drive or local copy containing the app folder, `migration-package/`, PostgreSQL installer, and Node.js installer.
@@ -67,17 +73,21 @@ Before restoring data, confirm `.env.local` has `DATABASE_URL` pointing to `loca
 
 ```powershell
 npm install
-npx prisma generate
 npm run db:migrate
 npm run migration:restore
 ```
+
+`npm install` also generates the database client. `migration:restore` refuses to run if the database already has items or orders. Only add `--replace` (`npm run migration:restore -- --replace`) when you mean to overwrite them; the current data is backed up first. It checks every image and row count before committing; if anything fails, the database and `public/uploads` stay as they were.
 
 Confirm the row counts printed by `npm run migration:restore` match `migration-package/manifest.json`, then continue:
 
 ```powershell
 npm run build
+npm run doctor
 npm run start
 ```
+
+`npm run doctor` must report 0 problems. `npm run start` takes a backup of the database and images first (see `docs/operations.md`).
 
 Open the POS in the browser and verify pages load.
 
@@ -105,6 +115,7 @@ PostgreSQL should be started by Windows Services, not by this script.
 5. Create a test order.
 6. Complete the test order.
 7. Confirm completed orders and dashboard still load.
+8. Confirm a new folder appeared in `backups/` (created on startup).
 
 ## Rollback
 

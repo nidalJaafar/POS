@@ -6,11 +6,14 @@ require('dotenv').config()
 
 const {
   DATA_DIR,
+  PACKAGE_DIR,
   UPLOADS_DIR,
   buildLocalImagePath,
   buildSafeSourceDescriptor,
-  ensurePackageDirs,
   packagePath,
+  removePath,
+  renameWithRetry,
+  resetPackageDirs,
   validateExportRows,
   writeJson,
 } = require('./migration-utils')
@@ -18,6 +21,7 @@ const {
 const supabaseUrl = process.env.SUPABASE_URL
 const supabaseKey = process.env.SUPABASE_API_KEY
 const MAX_IMAGE_BYTES = 25 * 1024 * 1024
+const DOWNLOAD_TIMEOUT_MS = 60_000
 
 if (!supabaseUrl) throw new Error('SUPABASE_URL is not set')
 if (!supabaseKey) throw new Error('SUPABASE_API_KEY is not set')
@@ -52,6 +56,7 @@ async function fetchTable(tableName) {
     const to = from + pageSize - 1
     const url = `${supabaseUrl}/rest/v1/${tableName}?select=*&order=id.asc`
     const response = await fetch(url, {
+      signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS),
       headers: {
         ...headers(),
         Range: `${from}-${to}`,
@@ -71,7 +76,10 @@ async function fetchTable(tableName) {
 
 async function downloadImage(imageUrl, filename) {
   const encodedUrl = encodeURI(imageUrl)
-  const response = await fetch(encodedUrl, { headers: isSupabaseUrl(imageUrl) ? headers() : undefined })
+  const response = await fetch(encodedUrl, {
+    headers: isSupabaseUrl(imageUrl) ? headers() : undefined,
+    signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS),
+  })
   const urlContext = safeUrlContext(imageUrl)
   if (!response.ok) {
     throw new Error(`Failed to download from ${urlContext}: ${response.status} ${response.statusText}`)
@@ -105,7 +113,15 @@ async function downloadImage(imageUrl, filename) {
 }
 
 async function run() {
-  ensurePackageDirs()
+  // Keep the previous package until this export succeeds: a network failure halfway
+  // must not leave you with neither
+  const previous = `${PACKAGE_DIR}.previous`
+  if (fs.existsSync(PACKAGE_DIR)) {
+    removePath(previous)
+    renameWithRetry(PACKAGE_DIR, previous)
+    console.log(`Moved the previous package to ${path.basename(previous)}`)
+  }
+  resetPackageDirs()
 
   console.log('Exporting Supabase tables...')
   const [items, orders, itemsOrders] = await Promise.all([
@@ -154,6 +170,7 @@ async function run() {
     imageMappings,
   })
 
+  removePath(previous)
   console.log('Export complete: migration-package')
 }
 
