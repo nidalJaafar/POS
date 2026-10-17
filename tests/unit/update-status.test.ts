@@ -35,9 +35,14 @@ describe('readUpdateNotice', () => {
     expect(readUpdateNotice(at + 8 * DAY)).toBeNull()
   })
 
-  it('keeps warning about a token GitHub refuses', () => {
-    withStatus({ ok: true, checkError: 'GitHub refused the token (expired or revoked?)', at: new Date(at).toISOString() })
-    expect(readUpdateNotice(at + 30 * DAY)?.message).toMatch(/token needs replacing/)
+  it('keeps warning while GitHub refuses access', () => {
+    withStatus({ ok: true, checkError: 'GitHub returned 403 for /x (repository private, or rate limit reached?)', at: new Date(at).toISOString() })
+    expect(readUpdateNotice(at + 30 * DAY)?.message).toMatch(/Updates paused/)
+  })
+
+  it('stays quiet when the laptop was simply offline', () => {
+    withStatus({ ok: true, checkError: 'fetch failed', at: new Date(at).toISOString() })
+    expect(readUpdateNotice(at)).toBeNull()
   })
 
   it('says nothing for a plain install, or off the shop laptop', () => {

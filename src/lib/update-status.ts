@@ -22,8 +22,8 @@ export function readUpdateNotice(now = Date.now()): UpdateNotice | null {
     return null
   }
   const age = now - new Date(status.at ?? 0).getTime()
-  if (status.checkError?.includes('token')) {
-    return { tone: 'error', message: 'Updates paused: the GitHub token needs replacing' }
+  if (status.checkError && /private, or rate limit/.test(status.checkError)) {
+    return { tone: 'error', message: 'Updates paused: GitHub refused access' }
   }
   if (status.ok === false && status.failedVersion && age < 7 * DAY) {
     return { tone: 'error', message: `Update to ${status.failedVersion} failed; still on the previous version` }

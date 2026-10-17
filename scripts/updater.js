@@ -8,12 +8,12 @@
  *   releases\<version>\   unzipped releases (app\, node\, start.cmd, release.json)
  *   shared\.env.local     shop settings, copied into every release's app\
  *   shared\uploads\       item photos     shared\backups\  backups
- *   shared\updater.json   GitHub repository and read-only token
+ *   shared\updater.json   GitHub repository and an optional read-only token
  *   shared\update-status.json   result of the last update, shown in the POS sidebar
  *   shared\logs\updater.log
  *
  * Commands (run with the release's own node.exe):
- *   updater.js install --from-app <old app folder> --token <github token> [--home C:\SunflowerPOS]
+ *   updater.js install --from-app <old app folder> [--token <github token>] [--home C:\SunflowerPOS]
  *       one-time setup from an unzipped release; keeps the shop's data and settings
  *   updater.js boot       check GitHub, install a newer release if there is one (never blocks startup)
  *   updater.js check      only report whether a newer release exists
@@ -144,19 +144,27 @@ function apiBase() {
   return process.env.UPDATER_API_URL || 'https://api.github.com'
 }
 
+// The repository is public, so a token is optional. If one is configured but GitHub
+// refuses it (expired, revoked), retry anonymously instead of pausing updates.
 async function github(config, urlPath, options = {}) {
-  const response = await fetch(`${apiBase()}${urlPath}`, {
-    ...options,
-    headers: {
-      Authorization: `Bearer ${config.token}`,
-      'X-GitHub-Api-Version': '2022-11-28',
-      'User-Agent': 'sunflower-pos-updater',
-      ...(options.headers ?? {}),
-    },
-    signal: options.signal ?? AbortSignal.timeout(API_TIMEOUT_MS),
-  })
-  if (response.status === 401 || response.status === 403) {
-    throw new Error('GitHub refused the token (expired or revoked?): updates are paused until it is replaced')
+  const request = (withToken) =>
+    fetch(`${apiBase()}${urlPath}`, {
+      ...options,
+      headers: {
+        ...(withToken ? { Authorization: `Bearer ${config.token}` } : {}),
+        'X-GitHub-Api-Version': '2022-11-28',
+        'User-Agent': 'sunflower-pos-updater',
+        ...(options.headers ?? {}),
+      },
+      signal: options.signal ?? AbortSignal.timeout(API_TIMEOUT_MS),
+    })
+  let response = await request(Boolean(config.token))
+  if (config.token && (response.status === 401 || response.status === 403)) {
+    log('GitHub refused the configured token; continuing without it')
+    response = await request(false)
+  }
+  if (response.status === 401 || response.status === 403 || response.status === 404) {
+    throw new Error(`GitHub returned ${response.status} for ${urlPath} (repository private, or rate limit reached?)`)
   }
   // With redirect: 'manual' a 302 is expected, not an error
   if (!response.ok && !(response.status >= 300 && response.status < 400)) {
@@ -364,11 +372,7 @@ async function applyRelease(p, config, release, hooks = {}) {
 
 async function boot(p, hooks = {}) {
   const current = readText(p.current)
-  const config = readJson(p.config)
-  if (!config?.token) {
-    writeStatus(p, { ok: false, version: current, message: 'Updates are not set up (no GitHub token)' })
-    return
-  }
+  const config = { repo: DEFAULT_REPO, token: '', ...(readJson(p.config) ?? {}) }
   let release
   try {
     release = await latestRelease(config)
@@ -479,8 +483,7 @@ async function main() {
       log(`Updater error: ${error.message}`)
     }
   } else if (options.command === 'check') {
-    const config = readJson(p.config)
-    if (!config?.token) throw new Error(`No token in ${p.config}`)
+    const config = { repo: DEFAULT_REPO, token: '', ...(readJson(p.config) ?? {}) }
     const release = await latestRelease(config)
     const current = readText(p.current)
     console.log(`Installed ${current}, latest ${release.version}: ${compareVersions(release.version, current) > 0 ? 'update available' : 'up to date'}`)

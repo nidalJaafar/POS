@@ -59,7 +59,7 @@ One time, at the shop, from an unzipped release (any version from 1.0.2):
 
 ```bat
 cd <unzipped release>
-node\node.exe app\scripts\updater.js install --from-app "<current app folder>" --token <read-only GitHub token>
+node\node.exe app\scripts\updater.js install --from-app "<current app folder>"
 ```
 
 This:
@@ -80,6 +80,6 @@ updater.js rollback   rem go back to the previous version, then restart the POS
 
 ## Notes
 
-- The repository is private, so the laptop needs a read-only GitHub token to download releases: a fine-grained token limited to this repository with **Contents: Read-only**. It's stored in `C:\SunflowerPOS\shared\updater.json`; to replace it, edit that file. While GitHub refuses the token, the sidebar says "Updates paused".
-- **GitHub Actions minutes:** in a private repository, Windows runners count double against the free monthly allowance. A release uses about 50 billed minutes and a CI run about 30.
+- The repository is public, so the laptop needs no GitHub token: it checks anonymously, one request per boot, far below GitHub's limit of 60 requests per hour. A token in `C:\SunflowerPOS\shared\updater.json` is optional. If GitHub ever refuses it, the updater continues without it. If GitHub refuses access altogether, the sidebar says "Updates paused".
+- **GitHub Actions minutes:** free and unlimited for public repositories.
 - **If a release fails:** open the run under **Actions**. Failed browser tests upload their screenshots and traces as an artifact. Fix the problem, then release the next patch version; don't move tags.
