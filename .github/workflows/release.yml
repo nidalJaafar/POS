@@ -120,6 +120,40 @@ jobs:
             Stop-Process -Id $server.Id -Force -ErrorAction SilentlyContinue
           }
 
+      # The updater end to end on Windows: install this release the way the shop laptop
+      # is set up, then let it update itself from the latest published release on GitHub
+      - name: Smoke test the updater
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $root = Join-Path $env:RUNNER_TEMP 'installed'
+          $home_ = Join-Path $env:RUNNER_TEMP 'SunflowerPOS'
+          $old = Join-Path $env:RUNNER_TEMP 'old-app'
+          New-Item -ItemType Directory -Force (Join-Path $old 'public\uploads') | Out-Null
+          Set-Content -Path (Join-Path $old '.env.local') -Value 'DATABASE_URL="postgresql://postgres:postgres@127.0.0.1:55432/sunflower_crafts_pos"'
+          Set-Content -Path (Join-Path $old 'public\uploads\cup.jpg') -Value 'photo'
+
+          & (Join-Path $root 'node\node.exe') (Join-Path $root 'app\scripts\updater.js') install --home $home_ --from-app $old --token $env:GH_TOKEN --repo ${{ github.repository }}
+          if ($LASTEXITCODE -ne 0) { throw 'updater install failed' }
+          if ((Get-Content (Join-Path $home_ 'current.txt')) -ne $env:VERSION) { throw 'install did not set the current version' }
+          if (-not (Test-Path (Join-Path $home_ 'shared\uploads\cup.jpg'))) { throw 'install did not copy the photos' }
+          if (-not (Test-Path (Join-Path $home_ 'launch.cmd'))) { throw 'install did not write launch.cmd' }
+
+          $latest = (gh release view --repo ${{ github.repository }} --json tagName --jq .tagName 2>$null)
+          if (-not $latest) { Write-Host 'No published release yet: skipping the update check'; exit 0 }
+          $latest = $latest.TrimStart('v')
+
+          # Pretend an old version is installed, so the latest published release is an update
+          Rename-Item (Join-Path $home_ "releases\$env:VERSION") '0.0.0'
+          Set-Content -Path (Join-Path $home_ 'current.txt') -Value '0.0.0' -NoNewline
+          & (Join-Path $home_ 'releases\0.0.0\node\node.exe') (Join-Path $home_ 'releases\0.0.0\app\scripts\updater.js') boot --home $home_
+          Get-Content (Join-Path $home_ 'shared\logs\updater.log')
+          $current = (Get-Content (Join-Path $home_ 'current.txt')).Trim()
+          if ($current -ne $latest) { throw "boot should have updated to $latest, still on $current" }
+          if (-not (Test-Path (Join-Path $home_ "releases\$latest\app\.env.local"))) { throw 'the update did not get the shop settings' }
+          Write-Host "Updater installed $env:VERSION, then updated itself to $latest from GitHub"
+
       - name: Publish the GitHub release
         shell: pwsh
         env:

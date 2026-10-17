@@ -1,4 +1,5 @@
 import Navigation from '@/components/navigation/Navigation'
+import { readUpdateNotice } from '@/lib/update-status'
 import localFont from 'next/font/local'
 import React, { Suspense } from 'react'
 import './globals.css'
@@ -43,7 +44,7 @@ export default function layout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
       <body className={`${poppins.className} bg-page text-ink sm:grid sm:grid-cols-[220px_1fr]`}>
-        <Navigation />
+        <Navigation updateNotice={readUpdateNotice()} />
         <div className="m-6 sm:my-10 sm:mr-10 sm:ml-10">
           <Suspense
             fallback={
