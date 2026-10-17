@@ -51,7 +51,8 @@ async function fakeGitHub(options: { version: string; zip: Buffer; sha?: string;
     const url = req.url ?? ''
     if (options.status) return res.writeHead(options.status).end()
     if (url === '/repos/shop/pos/releases/latest') {
-      if (req.headers.authorization !== 'Bearer test-token') return res.writeHead(401).end()
+      // Public repository: anonymous works, a wrong token is refused
+      if (req.headers.authorization && req.headers.authorization !== 'Bearer test-token') return res.writeHead(401).end()
       return res.writeHead(200, { 'Content-Type': 'application/json' }).end(
         JSON.stringify({
           tag_name: `v${options.version}`,
@@ -191,11 +192,28 @@ describe('boot', () => {
     expect(updater.readStatus(p.home)).toMatchObject({ checked: false })
   })
 
-  it('reports an expired or revoked token clearly', async () => {
+  it('updates without a token (public repository)', async () => {
     const p = installedHome()
-    await serve({ version: '1.0.1', zip: releaseZip('1.0.1'), status: 401 })
+    fs.writeFileSync(p.config, JSON.stringify({ repo: 'shop/pos', token: '' }))
+    await serve({ version: '1.0.1', zip: releaseZip('1.0.1') })
     await updater.boot(p, okHooks)
-    expect(updater.readStatus(p.home).checkError).toMatch(/refused the token/)
+    expect(fs.readFileSync(p.current, 'utf8')).toBe('1.0.1')
+  })
+
+  it('falls back to anonymous when the configured token is refused', async () => {
+    const p = installedHome()
+    fs.writeFileSync(p.config, JSON.stringify({ repo: 'shop/pos', token: 'expired-token' }))
+    await serve({ version: '1.0.1', zip: releaseZip('1.0.1') })
+    await updater.boot(p, okHooks)
+    expect(fs.readFileSync(p.current, 'utf8')).toBe('1.0.1')
+  })
+
+  it('reports when GitHub refuses even anonymous access', async () => {
+    const p = installedHome()
+    await serve({ version: '1.0.1', zip: releaseZip('1.0.1'), status: 403 })
+    await updater.boot(p, okHooks)
+    expect(updater.readStatus(p.home).checkError).toMatch(/403.*private, or rate limit/)
+    expect(fs.readFileSync(p.current, 'utf8')).toBe('1.0.0')
   })
 })
 

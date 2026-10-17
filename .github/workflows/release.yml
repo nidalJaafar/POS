@@ -121,7 +121,8 @@ jobs:
           }
 
       # The updater end to end on Windows: install this release the way the shop laptop
-      # is set up, then let it update itself from the latest published release on GitHub
+      # is set up (no token: the repository is public), then let it update itself from
+      # the latest published release on GitHub
       - name: Smoke test the updater
         shell: pwsh
         env:
@@ -134,7 +135,7 @@ jobs:
           Set-Content -Path (Join-Path $old '.env.local') -Value 'DATABASE_URL="postgresql://postgres:postgres@127.0.0.1:55432/sunflower_crafts_pos"'
           Set-Content -Path (Join-Path $old 'public\uploads\cup.jpg') -Value 'photo'
 
-          & (Join-Path $root 'node\node.exe') (Join-Path $root 'app\scripts\updater.js') install --home $home_ --from-app $old --token $env:GH_TOKEN --repo ${{ github.repository }}
+          & (Join-Path $root 'node\node.exe') (Join-Path $root 'app\scripts\updater.js') install --home $home_ --from-app $old --repo ${{ github.repository }}
           if ($LASTEXITCODE -ne 0) { throw 'updater install failed' }
           if ((Get-Content (Join-Path $home_ 'current.txt')) -ne $env:VERSION) { throw 'install did not set the current version' }
           if (-not (Test-Path (Join-Path $home_ 'shared\uploads\cup.jpg'))) { throw 'install did not copy the photos' }
