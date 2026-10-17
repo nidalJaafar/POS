@@ -1,0 +1,131 @@
+name: Release
+
+# Push a version tag to release: `npm version patch` then `git push --follow-tags`
+# (see docs/releasing.md). The shop laptop's updater installs the latest release.
+on:
+  push:
+    tags: ['v*.*.*']
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  test:
+    uses: ./.github/workflows/ci.yml
+
+  package:
+    name: Package for Windows
+    needs: test
+    runs-on: windows-latest
+    env:
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Check the tag matches package.json
+        shell: pwsh
+        run: |
+          $version = node -p "require('./package.json').version"
+          if ("v$version" -ne "${{ github.ref_name }}") {
+            throw "Tag ${{ github.ref_name }} does not match package.json version $version (use npm version to bump)"
+          }
+          "VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - run: npm ci
+      - run: npm run build
+      # Ship only what runs in the shop (prisma, used for migrations, is a dependency)
+      - run: npm prune --omit=dev
+
+      - name: Download the Node runtime the release ships with
+        shell: pwsh
+        run: |
+          $node = node -p "process.version"
+          $zip = "node-$node-win-x64.zip"
+          Invoke-WebRequest "https://nodejs.org/dist/$node/$zip" -OutFile $zip
+          Invoke-WebRequest "https://nodejs.org/dist/$node/SHASUMS256.txt" -OutFile SHASUMS256.txt
+          $expected = (Select-String -Path SHASUMS256.txt -Pattern " $zip$").Line.Split(' ')[0]
+          $actual = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower()
+          if ($expected -ne $actual) { throw "Checksum mismatch for $zip" }
+          Expand-Archive $zip -DestinationPath node-runtime
+          "NODE_EXE=$PWD\node-runtime\node-$node-win-x64\node.exe" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Assemble the release
+        run: node scripts/package-release.js --out dist --node "${{ env.NODE_EXE }}" --platform win-x64
+
+      - name: Zip and checksum
+        shell: pwsh
+        run: |
+          $name = "sunflower-pos-v$env:VERSION-win-x64"
+          Push-Location "dist\$name"
+          7z a -tzip -mx=7 "..\$name.zip" * | Out-Null
+          Pop-Location
+          $hash = (Get-FileHash "dist\$name.zip" -Algorithm SHA256).Hash.ToLower()
+          "$hash  $name.zip" | Out-File -Encoding ascii -NoNewline "dist\$name.zip.sha256"
+          Copy-Item "dist\$name\release.json" "dist\release.json"
+          Get-Item dist\*.zip | Select-Object Name, Length
+
+      # Start the packaged app exactly as the laptop would, against a scratch database
+      - name: Smoke test the packaged release
+        shell: pwsh
+        run: |
+          $data = Join-Path $env:RUNNER_TEMP 'pgdata'
+          $pwfile = Join-Path $env:RUNNER_TEMP 'pwfile'
+          Set-Content -Path $pwfile -Value 'postgres' -NoNewline
+          # Build the --pwfile=... argument as one string: PowerShell splits --x=(expr) in two
+          & "$env:PGBIN\initdb.exe" -D $data -U postgres -A md5 "--pwfile=$pwfile" --encoding=UTF8
+          if ($LASTEXITCODE -ne 0) { throw 'initdb failed' }
+          & "$env:PGBIN\pg_ctl.exe" -D $data -o "-p 55432" -l (Join-Path $env:RUNNER_TEMP 'pg.log') start
+          Start-Sleep -Seconds 3
+          $env:PGPASSWORD = 'postgres'
+          & "$env:PGBIN\createdb.exe" -h 127.0.0.1 -p 55432 -U postgres sunflower_crafts_pos
+
+          $name = "sunflower-pos-v$env:VERSION-win-x64"
+          $root = Join-Path $env:RUNNER_TEMP 'installed'
+          7z x "dist\$name.zip" "-o$root" | Out-Null
+          $app = Join-Path $root 'app'
+          $nodeExe = Join-Path $root 'node\node.exe'
+          Set-Content -Path (Join-Path $app '.env.local') -Value 'DATABASE_URL="postgresql://postgres:postgres@127.0.0.1:55432/sunflower_crafts_pos"'
+          $env:UPLOADS_DIR = Join-Path $env:RUNNER_TEMP 'uploads'
+
+          Push-Location $app
+          & $nodeExe node_modules\prisma\build\index.js migrate deploy
+          if ($LASTEXITCODE -ne 0) { throw 'migrate deploy failed' }
+          & $nodeExe scripts\backup.js --dir (Join-Path $env:RUNNER_TEMP 'backups')
+          if ($LASTEXITCODE -ne 0) { throw 'backup failed' }
+
+          $server = Start-Process -FilePath $nodeExe -ArgumentList 'node_modules\next\dist\bin\next','start','-H','127.0.0.1','-p','3123' -PassThru -NoNewWindow
+          Pop-Location
+          try {
+            $health = $null
+            foreach ($i in 1..60) {
+              try { $health = Invoke-RestMethod http://127.0.0.1:3123/api/health; break } catch { Start-Sleep -Seconds 1 }
+            }
+            if (-not $health.ok) { throw "Health check failed: $($health | ConvertTo-Json)" }
+            if ($health.version -ne $env:VERSION) { throw "Running $($health.version), expected $env:VERSION" }
+            foreach ($page in '/', '/orders', '/orders/completed', '/dashboard') {
+              $status = (Invoke-WebRequest "http://127.0.0.1:3123$page" -UseBasicParsing).StatusCode
+              if ($status -ne 200) { throw "$page returned $status" }
+            }
+            Write-Host "Release $env:VERSION runs: $($health | ConvertTo-Json -Compress)"
+          } finally {
+            Stop-Process -Id $server.Id -Force -ErrorAction SilentlyContinue
+          }
+
+      - name: Publish the GitHub release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $name = "sunflower-pos-v$env:VERSION-win-x64"
+          gh release create "${{ github.ref_name }}" `
+            "dist\$name.zip" "dist\$name.zip.sha256" "dist\release.json" `
+            --title "Sunflower POS $env:VERSION" --generate-notes

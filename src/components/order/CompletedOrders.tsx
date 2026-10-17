@@ -1,63 +1,75 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef } from 'react'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import Grid from '../Grid'
 import { Order } from '@/lib/dto'
 import OrderCard from '../order-list/OrderCard'
-import { dateFormat } from '../../lib/util'
+import { dateFormat } from '@/lib/util'
+import Search from '../Search'
+import Pagination from '../Pagination'
+import OrderFilters from '../order-list/OrderFilters'
 
-interface Params {
+interface Props {
   orders: [string, Order[]][]
+  currentPage: number
+  totalPages: number
+  query: string
 }
 
-export default function CompletedOrders({ orders }: Params) {
-  const [search, setSearch] = useState<string>('')
-  const [filteredOrders, setFilteredOrders] = useState<
-    { date: string; orders: Order[] }[]
-  >([])
+export default function CompletedOrders({ orders, currentPage, totalPages, query }: Props) {
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const debounce = useRef<ReturnType<typeof setTimeout>>()
 
-  useEffect(() => {
-    const lowercasedSearch = search.toLowerCase()
+  useEffect(() => () => clearTimeout(debounce.current), [])
 
-    const filtered = orders.flatMap(([date, orderList]) => {
-      const filteredBySearch = orderList.filter((order) =>
-        String(order.id).includes(lowercasedSearch)
-      )
-
-      if (filteredBySearch.length > 0) {
-        return [{ date, orders: filteredBySearch }]
-      }
-      return []
-    })
-
-    setFilteredOrders(filtered)
-  }, [orders, search])
-
-  function handleSearch(e: React.ChangeEvent<HTMLInputElement>) {
-    setSearch(e.target.value)
+  // Search runs on the server so it covers every page, not just the one loaded
+  function handleSearch(value: string) {
+    clearTimeout(debounce.current)
+    debounce.current = setTimeout(() => {
+      const params = new URLSearchParams(searchParams.toString())
+      if (value.trim()) params.set('q', value.trim())
+      else params.delete('q')
+      params.delete('page')
+      router.replace(`${pathname}?${params.toString()}`)
+    }, 300)
   }
 
   return (
-    <>
-      <input
-        className="mb-5 w-full self-start rounded-xl bg-beige-light p-3 focus:outline-0 sm:w-fit"
-        type="text"
-        value={search}
-        onChange={handleSearch}
-        placeholder="Search"
-      />
-      {filteredOrders.map(({ date, orders }) => (
-        <div key={date}>
-          <h2 className="mb-5 text-2xl font-bold">{dateFormat(date)}</h2>
-          <Grid className="w-full">
-            <>
-              {orders.map((order) => (
-                <OrderCard key={order.id} order={order} />
-              ))}
-            </>
-          </Grid>
-        </div>
-      ))}
-    </>
+    <div className="flex min-h-[calc(100vh-14rem)] flex-col gap-6">
+      <div className="flex flex-wrap items-center gap-4">
+        <OrderFilters />
+        <Search onSearch={handleSearch} defaultValue={query} placeholder="Search by order #" />
+      </div>
+
+      <div className="flex-1">
+        {orders.length === 0 ? (
+          <p className="text-sm text-ink-light">No completed orders found.</p>
+        ) : (
+          <div className="flex flex-col gap-10">
+            {orders.map(([date, list]) => (
+              <div key={date} className="flex flex-col gap-4">
+                <h2 className="text-xs font-medium uppercase tracking-widest text-ink-light">
+                  {dateFormat(date)}
+                </h2>
+                <Grid className="w-full">
+                  <>
+                    {list.map((order) => (
+                      <OrderCard key={order.id} order={order} />
+                    ))}
+                  </>
+                </Grid>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="mt-auto pt-4">
+        <Pagination currentPage={currentPage} totalPages={totalPages} />
+      </div>
+    </div>
   )
 }

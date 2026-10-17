@@ -4,6 +4,7 @@ import { Item, Order } from '@/lib/dto'
 import React, { useEffect, useState } from 'react'
 import { Bar } from 'react-chartjs-2'
 import 'chart.js/auto'
+import { applyChartTheme, themeColor } from '@/lib/theme-colors'
 
 interface Params {
   items: Item[]
@@ -86,8 +87,8 @@ function populateCharts(
               borderWidth: 1,
               categoryPercentage: 1,
               barPercentage: 0.6,
-              borderColor: '#333333',
-              backgroundColor: '#F7C15B',
+              borderColor: themeColor('chart'),
+              backgroundColor: themeColor('primary'),
             },
           ],
         }}
@@ -99,6 +100,7 @@ function populateCharts(
 
 export function BarChart({ items, yearMap, labels }: Params) {
   const ref = useHorizontalScroll()
+  applyChartTheme()
   const convertedYearMap = new Map<number, Map<number, Order[]>>(
     yearMap.map(([year, monthArray]) => [year, new Map(monthArray)])
   )

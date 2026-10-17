@@ -11,6 +11,7 @@
 
 # next.js
 /.next/
+/.next-e2e/
 /out/
 
 # production
@@ -25,8 +26,10 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# local env files
-.env*.local
+# local env files (database password, Supabase key)
+.env
+.env.*
+!.env.example
 
 # vercel
 .vercel
@@ -34,3 +37,25 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# migration artifacts
+/migration-package/
+/migration-package.previous/
+*.migration.log
+
+# runtime data: item images uploaded on the POS machine, and local backups
+/public/uploads/
+/backups/
+
+# next-pwa generates these on every build
+/public/sw.js
+/public/sw.js.map
+/public/workbox-*.js
+/public/workbox-*.js.map
+
+# IDE
+.idea/
+
+# test output
+/playwright-report/
+/test-results/

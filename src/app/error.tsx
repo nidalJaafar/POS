@@ -10,10 +10,10 @@ export default function Error() {
           src={errorImage}
           alt="error logo"
           fill
-          className="object-cover"
+          className="object-contain"
         />
       </div>
-      <div className="block h-52 border-l-2 border-solid border-charcoal"></div>
+      <div className="block h-52 border-l-2 border-solid border-ink"></div>
       <div className="text-xl">An Error Occurred</div>
     </div>
   )

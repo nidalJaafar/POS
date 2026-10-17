@@ -14,38 +14,31 @@ interface Params {
 export default function OrderControls({ order, handlePending }: Params) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
-  useEffect(() => {
-    handlePending(isPending)
-  }, [handlePending, isPending])
-  const iconClass = 'w-5'
-  const controlClass =
-    'flex max-h-12 cursor-pointer items-center justify-center gap-2 p-2'
+
+  useEffect(() => { handlePending(isPending) }, [handlePending, isPending])
+
+  const btnBase = 'flex items-center gap-1.5 px-3 py-2 text-xs font-medium transition-all hover:brightness-95'
+
   return (
-    <div className="flex items-center justify-center rounded-xl">
-      <div
-        className={`bg-skyBlue ${controlClass} rounded-l-lg`}
-        onClick={() =>
-          startTransition(() => router.push(`/orders/edit/${order.id}`))
-        }
+    <div className="flex overflow-hidden rounded-xl">
+      <button
+        onClick={() => startTransition(() => router.push(`/orders/edit/${order.id}`))}
+        className={`${btnBase} rounded-l-xl bg-primary-light`}
       >
-        <Pencil className={iconClass} /> Edit
-      </div>
-      <div
-        className={`bg-mintGreen ${controlClass}`}
-        onClick={() =>
-          startTransition(() => completePendingOrder(Number(order.id)))
-        }
+        <Pencil className="w-3.5" /> Edit
+      </button>
+      <button
+        onClick={() => startTransition(() => completePendingOrder(order.id))}
+        className={`${btnBase} bg-success text-success-ink`}
       >
-        <Check className={iconClass} /> Complete
-      </div>
-      <div
-        className={`bg-pastelPink ${controlClass} rounded-r-lg`}
-        onClick={() =>
-          startTransition(() => deletePendingOrder(Number(order.id)))
-        }
+        <Check className="w-3.5" /> Complete
+      </button>
+      <button
+        onClick={() => startTransition(() => deletePendingOrder(order.id))}
+        className={`${btnBase} rounded-r-xl bg-danger text-danger-ink`}
       >
-        <Trash className={iconClass} /> Delete
-      </div>
+        <Trash className="w-3.5" /> Delete
+      </button>
     </div>
   )
 }

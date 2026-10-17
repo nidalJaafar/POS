@@ -9,12 +9,11 @@ export default function NewOrderGalleryItems({
   active: boolean
   children: React.ReactElement
 }) {
+  if (!active) return null
   return (
-    active && (
-      <div className="flex flex-col justify-start gap-5">
-        <h3 className="text-2xl font-bold">{title}</h3>
-        <Grid>{children}</Grid>
-      </div>
-    )
+    <div className="flex flex-col gap-4">
+      <h3 className="text-base font-medium text-ink-light uppercase tracking-wide">{title}</h3>
+      <Grid>{children}</Grid>
+    </div>
   )
 }

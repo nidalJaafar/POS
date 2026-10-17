@@ -1,17 +1,14 @@
-import { getItems } from '@/lib/supabase/supabase-operations'
-import StoreProvider from './StoreProvider'
+import { getItems } from '@/lib/prisma/operations'
+import { ItemsProvider } from '@/lib/context/ItemsContext'
 import NewOrderGallery from '@/components/order-list/NewOrderGallery'
 
 export const dynamic = 'force-dynamic'
 
-async function page() {
+export default async function page() {
   const items = await getItems()
-
   return (
-    <StoreProvider items={items}>
+    <ItemsProvider items={items}>
       <NewOrderGallery />
-    </StoreProvider>
+    </ItemsProvider>
   )
 }
-
-export default page

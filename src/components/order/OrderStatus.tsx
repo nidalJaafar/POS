@@ -1,19 +1,19 @@
 interface Params {
-  status: string
+  status: 'pending' | 'completed'
 }
 
-function getClass(status: string): string {
-  if (status === 'pending') return 'bg-skyBlue'
-  if (status === 'completed') return 'bg-mintGreen'
-  return 'bg-pastelPink'
+function badgeClass(status: string): string {
+  if (status === 'pending') return 'bg-primary-light text-ink'
+  if (status === 'completed') return 'bg-success text-success-ink'
+  return 'bg-danger text-danger-ink'
 }
 
 export default function OrderStatus({ status }: Params) {
   return (
-    <div
-      className={`bg-pin flex items-center justify-center rounded-full px-2 py-1 text-lg ${getClass(status)}`}
+    <span
+      className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium capitalize ${badgeClass(status)}`}
     >
       {status}
-    </div>
+    </span>
   )
 }

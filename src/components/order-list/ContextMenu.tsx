@@ -11,63 +11,56 @@ interface Params {
   setIsPending?: (isPending: boolean) => void
 }
 
-export default function ContextMenu({
-  orderId,
-  isOpen,
-  handleIsOpen,
-  setIsPending,
-}: Params) {
+export default function ContextMenu({ orderId, isOpen, handleIsOpen, setIsPending }: Params) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
-  useEffect(() => {
-    if (setIsPending) setIsPending(isPending)
-  }, [isPending, setIsPending])
 
-  function handleClick(e: React.MouseEvent<HTMLDivElement>) {
+  useEffect(() => { setIsPending?.(isPending) }, [isPending, setIsPending])
+
+  function handleClick(e: React.MouseEvent) {
     e.stopPropagation()
     handleIsOpen()
   }
+
   return (
     <>
       <div
-        className={`z-5 fixed inset-0 ${
-          isOpen ? 'cursor-pointer' : 'pointer-events-none'
-        }`}
+        className={`fixed inset-0 z-10 ${isOpen ? 'cursor-pointer' : 'pointer-events-none'}`}
         onClick={handleClick}
-      ></div>
-      <div
+      />
+      <button
+        aria-label={`Actions for order ${orderId}`}
         onClick={handleClick}
-        className={`absolute right-5 flex w-fit cursor-pointer items-center justify-center rounded-full p-1 hover:bg-sunflowerYellow-light ${isOpen ? 'bg-sunflowerYellow-light' : 'bg-beige'}`}
-      >
-        <EllipsisVertical />
-      </div>
-      <div
-        className={`absolute right-0 top-12 z-10 transform flex-col items-center justify-center transition-opacity duration-100 ease-in-out ${
-          isOpen
-            ? 'translate-y-0 opacity-100'
-            : 'pointer-events-none -z-0 opacity-0'
+        className={`absolute right-3 top-3 z-20 rounded-full p-1.5 transition-colors hover:bg-primary-light ${
+          isOpen ? 'bg-primary-light' : 'bg-panel'
         }`}
       >
-        <div
-          className="flex w-8 cursor-pointer items-center justify-center rounded-t-xl bg-skyBlue p-2"
-          onClick={() =>
-            startTransition(() => router.push(`/orders/edit/${orderId}`))
-          }
+        <EllipsisVertical className="w-4" />
+      </button>
+
+      <div
+        className={`absolute right-3 top-12 z-20 flex flex-col overflow-hidden rounded-xl shadow-lg transition-all duration-150 ${
+          isOpen ? 'opacity-100' : 'pointer-events-none opacity-0'
+        }`}
+      >
+        <button
+          onClick={() => startTransition(() => router.push(`/orders/edit/${orderId}`))}
+          className="flex items-center gap-2 bg-primary-light px-3 py-2 text-xs font-medium hover:brightness-95"
         >
-          <Pencil />
-        </div>
-        <div
-          className="flex w-8 cursor-pointer items-center justify-center bg-mintGreen p-2"
+          <Pencil className="w-3.5" /> Edit
+        </button>
+        <button
           onClick={() => startTransition(() => completePendingOrder(orderId))}
+          className="flex items-center gap-2 bg-success px-3 py-2 text-xs text-success-ink font-medium hover:brightness-95"
         >
-          <Check />
-        </div>
-        <div
-          className="flex w-8 cursor-pointer items-center justify-center rounded-b-xl bg-pastelPink p-2"
+          <Check className="w-3.5" /> Complete
+        </button>
+        <button
           onClick={() => startTransition(() => deletePendingOrder(orderId))}
+          className="flex items-center gap-2 bg-danger text-danger-ink px-3 py-2 text-xs font-medium hover:brightness-95"
         >
-          <Trash />
-        </div>
+          <Trash className="w-3.5" /> Delete
+        </button>
       </div>
     </>
   )

@@ -1,107 +1,87 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useState } from 'react'
 import useIsMobile from '../../hooks/useIsMobile'
 import Logo from './Logo'
 import NavigationLink from './NavigationLink'
 import { ChartPie, Ellipsis, Plus } from 'lucide-react'
-import Hamburger from 'hamburger-react'
 
 const links = [
-  {
-    title: 'New Order',
-    href: '/',
-    icon: <Plus className="w-7" />,
-  },
-  {
-    title: 'Orders',
-    href: '/orders',
-    icon: <Ellipsis />,
-  },
-  {
-    title: 'Dashboard',
-    href: '/dashboard',
-    icon: <ChartPie />,
-  },
+  { title: 'New Order', href: '/', icon: <Plus className="w-5" /> },
+  { title: 'Orders', href: '/orders', icon: <Ellipsis className="w-5" /> },
+  { title: 'Dashboard', href: '/dashboard', icon: <ChartPie className="w-5" /> },
 ]
 
-function Navigation() {
-  const isMobile = useIsMobile()
-  const [isMounted, setIsMounted] = useState(false)
-  const [isOpen, setIsOpen] = useState(false)
-
-  useEffect(() => {
-    setIsMounted(true)
-  }, [])
-
-  function handleOpen() {
-    setIsOpen((o) => !o)
-  }
-
-  const navLinks = (
-    <>
-      <div onClick={handleOpen}>
-        <Logo />
-      </div>
-      <ul className="mt-10 flex flex-1 flex-col gap-10">
-        {links.map((link) => (
-          <li key={link.title}>
-            <NavigationLink
-              onClick={handleOpen}
-              href={link.href}
-              title={link.title}
-              icon={link.icon}
-            />
-          </li>
-        ))}
-      </ul>
-    </>
+function HamburgerIcon({ open }: { open: boolean }) {
+  return (
+    <div className="flex h-6 w-6 flex-col justify-between cursor-pointer">
+      <span className={`block h-0.5 w-full ${open ? 'bg-sidebar-ink' : 'bg-ink'} transition-all duration-300 ${open ? 'translate-y-2.5 rotate-45' : ''}`} />
+      <span className={`block h-0.5 w-full ${open ? 'bg-sidebar-ink' : 'bg-ink'} transition-all duration-300 ${open ? 'opacity-0' : ''}`} />
+      <span className={`block h-0.5 w-full ${open ? 'bg-sidebar-ink' : 'bg-ink'} transition-all duration-300 ${open ? '-translate-y-2.5 -rotate-45' : ''}`} />
+    </div>
   )
+}
 
-  if (!isMounted) {
-    return null
-  }
-
+function NavContent({ onLinkClick }: { onLinkClick?: () => void }) {
   return (
     <>
-      {isMobile ? (
-        <div className="flex items-center justify-start">
-          <div className="ml-10 mt-10 h-10 w-10">
-            <Hamburger toggled={isOpen} toggle={handleOpen} />
-          </div>
-          <div
-            className={`fixed inset-0 z-10 bg-black transition-opacity duration-300 ease-in-out ${
-              isOpen ? 'opacity-50' : 'pointer-events-none opacity-0'
-            }`}
-            onClick={handleOpen}
-          ></div>
-          <MobileWrapper isOpen={isOpen}>{navLinks}</MobileWrapper>
-        </div>
-      ) : (
-        <div
-          className={`flex min-h-screen max-w-fit flex-col items-center rounded-2xl bg-beige p-6`}
-        >
-          <div className="sticky top-10">{navLinks}</div>
-        </div>
-      )}
+      <div className="mb-10">
+        <Logo />
+      </div>
+      <nav>
+        <ul className="flex flex-col gap-2">
+          {links.map((link) => (
+            <li key={link.title}>
+              <NavigationLink
+                href={link.href}
+                title={link.title}
+                icon={link.icon}
+                onClick={onLinkClick}
+              />
+            </li>
+          ))}
+        </ul>
+      </nav>
+      {/* Which release is running; mt-auto pins it to the bottom of the sidebar */}
+      <p className="mt-auto pt-6 text-xs text-sidebar-muted">Version {process.env.NEXT_PUBLIC_APP_VERSION}</p>
     </>
   )
 }
 
-function MobileWrapper({
-  children,
-  isOpen,
-}: {
-  children: React.ReactNode
-  isOpen: boolean
-}) {
+function Navigation() {
+  const isMobile = useIsMobile()
+  const [isOpen, setIsOpen] = useState(false)
+
+  if (!isMobile) {
+    return (
+      <div className="sticky top-0 flex h-screen flex-col bg-sidebar border-r border-panel-dark/40 p-6 shadow-sm">
+        <NavContent />
+      </div>
+    )
+  }
+
   return (
-    <div
-      className={`fixed right-0 top-0 z-20 flex h-full w-fit transform flex-col bg-white p-10 shadow-2xl transition-transform duration-300 ease-in-out ${
-        isOpen ? 'translate-x-0' : 'translate-x-full'
-      }`}
-    >
-      {children}
+    <div className="flex items-center p-5">
+      <button aria-label="Toggle menu" aria-expanded={isOpen} onClick={() => setIsOpen((o) => !o)} className="relative z-40">
+        <HamburgerIcon open={isOpen} />
+      </button>
+
+      {/* Backdrop */}
+      <div
+        className={`fixed inset-0 z-20 bg-black transition-opacity duration-300 ${
+          isOpen ? 'opacity-50' : 'pointer-events-none opacity-0'
+        }`}
+        onClick={() => setIsOpen(false)}
+      />
+
+      {/* Drawer */}
+      <div
+        className={`fixed left-0 top-0 z-30 flex h-full w-64 flex-col bg-sidebar p-8 shadow-2xl transition-transform duration-300 ${
+          isOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
+        <NavContent onLinkClick={() => setIsOpen(false)} />
+      </div>
     </div>
   )
 }

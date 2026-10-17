@@ -1,53 +1,48 @@
 'use client'
 import { Item } from '@/lib/dto'
-import { CSSTransition } from 'react-transition-group'
 import AddItems from '../AddItems'
 import OrderForm from '../order/OrderForm'
 import Search from '../Search'
 
 interface Params {
-  handleFilteredItems: (items: Item[]) => void
-  addItemActive: boolean
-  setAddItemActive: (state: boolean) => void
+  onSearch: (query: string) => void
+  showItemForm: boolean
+  setShowItemForm: (v: boolean) => void
   editedItem: Item | null
-  setEditedItem: (state: Item | null) => void
-  setPending: (state: boolean) => void
+  setEditedItem: (v: Item | null) => void
+  setIsPending: (v: boolean) => void
 }
 
 export default function Header({
-  handleFilteredItems,
-  addItemActive,
-  setAddItemActive,
+  onSearch,
+  showItemForm,
+  setShowItemForm,
   editedItem,
   setEditedItem,
-  setPending,
+  setIsPending,
 }: Params) {
   return (
-    <>
-      <div className="flex flex-col items-start gap-5 sm:flex-row sm:items-center sm:gap-10">
-        <Search handleFilteredItems={handleFilteredItems} />
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-center gap-3">
+        <Search onSearch={onSearch} />
         <AddItems
-          isActive={addItemActive}
+          isActive={showItemForm}
           onActivate={() => setEditedItem(null)}
-          setIsActive={setAddItemActive}
+          setIsActive={setShowItemForm}
         />
       </div>
-      <CSSTransition
-        key="form"
-        in={addItemActive}
-        classNames="slide"
-        unmountOnExit
-        timeout={300}
-        addEndListener={(node, done) => {
-          node.addEventListener('transitionend', done, false)
-        }}
+
+      <div
+        className={`overflow-hidden transition-all duration-300 ${
+          showItemForm ? 'max-h-[600px] opacity-100' : 'max-h-0 opacity-0'
+        }`}
       >
         <OrderForm
-          setPending={setPending}
+          setPending={setIsPending}
           item={editedItem}
-          setAddedItemActive={setAddItemActive}
+          setAddedItemActive={setShowItemForm}
         />
-      </CSSTransition>
-    </>
+      </div>
+    </div>
   )
 }

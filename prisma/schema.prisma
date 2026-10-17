@@ -1,0 +1,43 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Item {
+  id          Int          @id @default(autoincrement())
+  name        String
+  image       String
+  price       Float
+  deleted     Boolean      @default(false)
+  createdAt   DateTime     @default(now()) @map("created_at")
+  orderItems  OrderItem[]
+
+  @@map("items")
+}
+
+model Order {
+  id          Int          @id @default(autoincrement())
+  status      String
+  createdAt   DateTime     @default(now()) @map("created_at")
+  itemsOrders OrderItem[]
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now()) @map("created_at")
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId   Int      @map("order_id")
+  item      Item     @relation(fields: [itemId], references: [id])
+  itemId    Int      @map("item_id")
+  quantity  Int
+  // Item price at the time the order was placed, so later price edits don't rewrite history
+  unitPrice Float    @map("unit_price")
+
+  @@unique([orderId, itemId])
+  @@map("items_orders")
+}

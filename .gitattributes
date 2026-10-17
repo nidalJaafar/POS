@@ -1,0 +1,8 @@
+# Keep LF everywhere so a Windows checkout can't change file contents (migration SQL
+# checksums, scripts, snapshots); Git converts nothing on checkout
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.webp binary
+*.woff2 binary
+*.ico binary
