@@ -49,6 +49,10 @@ jobs:
 
       - run: npm run typecheck
       - run: npm run lint
+      # Same as the release build: no database is configured here, so anything that
+      # needs one at build time fails now instead of at release time
+      - name: Build without a database
+        run: npm run build
       - run: npm test
 
       - run: npx playwright install --with-deps chromium
