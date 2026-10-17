@@ -39,8 +39,11 @@ jobs:
         shell: pwsh
         run: |
           $data = Join-Path $env:RUNNER_TEMP 'pgdata'
-          Set-Content -Path (Join-Path $env:RUNNER_TEMP 'pwfile') -Value 'postgres' -NoNewline
-          & "$env:PGBIN\initdb.exe" -D $data -U postgres -A md5 --pwfile=(Join-Path $env:RUNNER_TEMP 'pwfile') --encoding=UTF8
+          $pwfile = Join-Path $env:RUNNER_TEMP 'pwfile'
+          Set-Content -Path $pwfile -Value 'postgres' -NoNewline
+          # Build the --pwfile=... argument as one string: PowerShell splits --x=(expr) in two
+          & "$env:PGBIN\initdb.exe" -D $data -U postgres -A md5 "--pwfile=$pwfile" --encoding=UTF8
+          if ($LASTEXITCODE -ne 0) { throw 'initdb failed' }
           & "$env:PGBIN\pg_ctl.exe" -D $data -o "-p 55432" -l (Join-Path $env:RUNNER_TEMP 'pg.log') start
           "TEST_DB_EXTERNAL=1" | Out-File -FilePath $env:GITHUB_ENV -Append
 
