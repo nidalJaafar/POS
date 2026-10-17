@@ -2,108 +2,121 @@
 import { addItemToMenu } from '@/lib/actions'
 import { Item } from '@/lib/dto'
 import { Coffee, DollarSign, Save } from 'lucide-react'
-import React, { FormEvent, useEffect, useState, useTransition } from 'react'
+import React, { FormEvent, useEffect, useRef, useState, useTransition } from 'react'
 
-import { useForm } from 'react-hook-form'
 interface Params {
   item: Item | null
   setAddedItemActive: (value: boolean) => void
   setPending: (state: boolean) => void
 }
 
-export default function OrderForm({
-  item,
-  setAddedItemActive,
-  setPending,
-}: Params) {
+export default function OrderForm({ item, setAddedItemActive, setPending }: Params) {
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [isPending, startTransition] = useTransition()
+  const formRef = useRef<HTMLFormElement>(null)
 
-  const { register } = useForm({
-    defaultValues: {
-      ...item,
-    },
-  })
+  useEffect(() => { setPending(isPending) }, [isPending, setPending])
+
+  // Inputs are uncontrolled, so reset them to the new item's values when it changes
   useEffect(() => {
-    if (item?.image) {
-      setImagePreview(item.image)
-    }
+    formRef.current?.reset()
+    setImagePreview(item?.image ?? null)
+    setSelectedFile(null)
   }, [item])
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (file) {
-      setSelectedFile(file)
-      const reader = new FileReader()
-      reader.onloadend = () => {
-        setImagePreview(reader.result as string)
-      }
-      reader.readAsDataURL(file)
-    }
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setSelectedFile(file)
+    const reader = new FileReader()
+    reader.onloadend = () => setImagePreview(reader.result as string)
+    reader.readAsDataURL(file)
   }
+
+  function handleSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    const data = new FormData(e.target as HTMLFormElement)
+    data.delete('image')
+    if (selectedFile) data.append('image', selectedFile)
+    else data.append('image', item?.image ?? '')
+    startTransition(() => addItemToMenu(data))
+    setAddedItemActive(false)
+    formRef.current?.reset()
+    setImagePreview(item?.image ?? null)
+    setSelectedFile(null)
+  }
+
+  const inputClass =
+    'w-full rounded-xl bg-panel-light px-4 py-3 text-sm font-normal focus:outline-none focus:ring-2 focus:ring-primary border border-panel-dark/30'
+
   return (
     <form
-      onSubmit={async (e: FormEvent<HTMLFormElement>) => {
-        e.preventDefault()
-        const data = new FormData(e.target as HTMLFormElement)
-        data.delete('image')
-        if (selectedFile) {
-          data.append('image', selectedFile)
-        } else {
-          data.append('image', item?.image || '')
-        }
-        setPending(true)
-        await addItemToMenu(data)
-        setPending(false)
-      }}
+      ref={formRef}
+      onSubmit={handleSubmit}
       encType="multipart/form-data"
-      className="mt-5 flex h-max max-w-fit flex-col items-start justify-center gap-10"
+      className="mt-2 flex flex-col gap-4 rounded-2xl bg-surface p-6 sm:max-w-sm shadow-sm"
     >
       {imagePreview && (
+        // eslint-disable-next-line @next/next/no-img-element -- previews a local data: URL
         <img
           src={imagePreview}
-          alt="Image preview"
-          className="mb-4 h-24 w-24 rounded object-cover"
+          alt="Preview"
+          className="h-24 w-24 rounded-xl object-cover"
         />
       )}
+
       <label
         htmlFor="image"
-        className="mr-5 cursor-pointer rounded-xl border-0 bg-sunflowerYellow-light p-2 text-charcoal hover:cursor-pointer"
+        className="cursor-pointer rounded-xl bg-primary-light px-4 py-2 text-center text-sm font-medium text-ink hover:bg-primary hover:text-primary-ink transition-colors"
       >
-        Choose an image
+        Choose image
       </label>
       <input
-        {...register('image')}
         type="file"
-        className="hidden"
         id="image"
+        name="image"
+        accept="image/*"
+        className="hidden"
         onChange={handleFileChange}
       />
-      <div className="flex items-center gap-0">
-        <DollarSign className="w-5" />
+
+      <div className="relative">
+        <DollarSign className="absolute left-3 top-1/2 w-4 -translate-y-1/2 text-ink-light" />
         <input
-          {...register('price')}
+          name="price"
           type="number"
           step={0.01}
-          placeholder="Item price"
-          className="w-fit rounded-xl p-3 focus:outline-0"
+          min={0}
+          defaultValue={item?.price}
+          placeholder="Price"
+          aria-label="Price"
+          className={`${inputClass} pl-9`}
+          required
         />
       </div>
-      <div className="flex items-center gap-0">
-        <Coffee className="w-5" />
+
+      <div className="relative">
+        <Coffee className="absolute left-3 top-1/2 w-4 -translate-y-1/2 text-ink-light" />
         <input
-          {...register('name')}
+          name="name"
           type="text"
+          defaultValue={item?.name}
           placeholder="Item name"
-          className="w-fit rounded-xl p-3 focus:outline-0"
+          aria-label="Item name"
+          className={`${inputClass} pl-9`}
+          required
         />
       </div>
-      <input type="hidden" {...register('id')} />
+
+      <input type="hidden" name="id" defaultValue={item?.id} />
+
       <button
-        onClick={() => setAddedItemActive(false)}
-        className="flex items-center justify-center gap-2 rounded-xl bg-sunflowerYellow-light p-2 text-charcoal"
+        type="submit"
+        disabled={isPending}
+        className="flex items-center justify-center gap-2 rounded-xl bg-primary py-2.5 text-sm font-semibold text-primary-ink shadow-sm transition-all hover:bg-primary-dark disabled:opacity-60"
       >
-        <Save className="text-charcoal" /> Save
+        <Save className="w-4" /> Save
       </button>
     </form>
   )

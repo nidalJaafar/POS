@@ -1,122 +1,100 @@
 'use client'
-import { Item, Order } from '@/lib/dto'
+import { Order } from '@/lib/dto'
 import 'chart.js/auto'
-import { Bar } from 'react-chartjs-2'
+import { applyChartTheme, themeColor } from '@/lib/theme-colors'
+import { Chart } from 'react-chartjs-2'
 
 interface Params {
-  items: Item[]
   yearMap: [number, [number, Order[]][]][]
   labels: string[]
 }
 
-export default function StackedBarChart({ items, yearMap, labels }: Params) {
-  const convertedYearMap = new Map<number, Map<number, Order[]>>(
+export default function StackedBarChart({ yearMap, labels }: Params) {
+  applyChartTheme()
+  const convertedYearMap = new Map(
     yearMap.map(([year, monthArray]) => [year, new Map(monthArray)])
   )
   const year = Array.from(convertedYearMap.keys()).sort((a, b) => b - a)[0]
+  const monthMap = convertedYearMap.get(year)
 
-  const quantityDatasets = items.map((item) => {
-    const data = labels.map((_, index) => {
-      const ordersPerMonth = convertedYearMap.get(year)?.get(index) || []
-      return ordersPerMonth.reduce((total, order) => {
-        const orderItem = order.items.find((i) => i.id === item.id)
-        return total + (orderItem ? orderItem.quantity : 0)
-      }, 0)
-    })
-
-    return {
-      label: `${item.name} - Quantity Sold`,
-      data,
-      backgroundColor: '#C7933D',
-      borderColor: '#333333',
-      borderWidth: 1,
-      borderSkipped: false,
-      yAxisID: 'Quantity',
-      stack: 'Stack 0',
-    }
+  const quantityData = labels.map((_, i) => {
+    const orders = monthMap?.get(i) ?? []
+    return orders.reduce((sum, o) => sum + o.items.reduce((s, item) => s + item.quantity, 0), 0)
   })
 
-  const revenueDatasets = items.map((item) => {
-    const data = labels.map((_, index) => {
-      const ordersPerMonth = convertedYearMap.get(year)?.get(index) || []
-      return ordersPerMonth.reduce((total, order) => {
-        const orderItem = order.items.find((i) => i.id === item.id)
-        return total + (orderItem ? orderItem.quantity * item.price : 0)
-      }, 0)
-    })
-
-    return {
-      label: `${item.name} - Revenue`,
-      data,
-      backgroundColor: '#F7C15B',
-      borderColor: '#333333',
-      borderWidth: 1,
-      borderSkipped: false,
-      yAxisID: 'Revenue',
-      stack: 'Stack 1',
-    }
+  const revenueData = labels.map((_, i) => {
+    const orders = monthMap?.get(i) ?? []
+    return orders.reduce(
+      (sum, o) => sum + o.items.reduce((s, item) => s + item.quantity * item.price, 0),
+      0
+    )
   })
 
   return (
-    <Bar
-      className="max-h-[75vh]"
+    <Chart type="bar"
+      className="max-h-[60vh]"
       data={{
-        labels: labels,
-        datasets: [...quantityDatasets, ...revenueDatasets],
+        labels,
+        datasets: [
+          {
+            type: 'bar',
+            label: 'Units Sold',
+            data: quantityData,
+            backgroundColor: themeColor('chart'),
+            borderRadius: 6,
+            yAxisID: 'quantity',
+          },
+          {
+            type: 'line',
+            label: 'Revenue ($)',
+            data: revenueData,
+            borderColor: themeColor('primary'),
+            backgroundColor: themeColor('primary', 0.13),
+            borderWidth: 2.5,
+            pointRadius: 4,
+            pointBackgroundColor: themeColor('primary'),
+            tension: 0.4,
+            fill: true,
+            yAxisID: 'revenue',
+          },
+        ],
       }}
       options={{
         maintainAspectRatio: false,
         responsive: true,
         plugins: {
-          legend: {
-            display: false,
-          },
-          title: {
-            display: false,
-            text: 'Items Sold and Revenue per Month',
-          },
+          legend: { display: true, position: 'top' as const },
           tooltip: {
             callbacks: {
-              title: (tooltipItems: { dataIndex: any }[]) => {
-                const monthIndex = tooltipItems[0].dataIndex
-                return labels[monthIndex]
+              label: (ctx) => {
+                if (ctx.dataset.yAxisID === 'revenue') {
+                  return ` Revenue: $${Number(ctx.raw).toFixed(2)}`
+                }
+                return ` Units: ${ctx.raw}`
               },
             },
           },
         },
         scales: {
-          x: {
-            title: {
-              display: true,
-              text: 'Month',
-            },
-            ticks: {
-              autoSkip: false,
-            },
-            stacked: true,
-          },
-          Quantity: {
+          x: { grid: { display: false } },
+          quantity: {
             type: 'linear',
             position: 'left',
-            ticks: {
-              color: '#C7933D',
-            },
-            title: {
-              display: true,
-              text: 'Quantity',
-            },
+            title: { display: true, text: 'Units Sold', color: themeColor('chart') },
+            ticks: { color: themeColor('chart') },
+            grid: { color: themeColor('panel-dark', 0.4) },
+            beginAtZero: true,
           },
-          Revenue: {
+          revenue: {
             type: 'linear',
             position: 'right',
+            title: { display: true, text: 'Revenue ($)', color: themeColor('ink-light') },
             ticks: {
-              color: '#F7C15B',
+              color: themeColor('ink-light'),
+              callback: (v) => `$${Number(v).toFixed(0)}`,
             },
-            title: {
-              display: true,
-              text: 'Revenue',
-            },
-            stacked: true,
+            grid: { display: false },
+            beginAtZero: true,
           },
         },
       }}

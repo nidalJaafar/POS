@@ -14,6 +14,6 @@ export interface OrderItem extends Item {
 export interface Order {
   id: number
   items: OrderItem[]
-  status: string
+  status: 'pending' | 'completed'
   created_at: string
 }

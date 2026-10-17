@@ -10,22 +10,26 @@ interface Props {
   onClick?: () => void
 }
 
-function checkIfActive(pathName: string, href: string): boolean {
-  if (pathName === '/') return href === '/'
-  if (href === '/') return false
-  return pathName.replaceAll('/', '').includes(href.replaceAll('/', ''))
+function isActive(pathname: string, href: string): boolean {
+  if (href === '/') return pathname === '/'
+  return pathname.startsWith(href)
 }
 
 function NavigationLink({ href, title, icon, onClick }: Props) {
-  const pathName = usePathname()
-  const active = checkIfActive(pathName, href)
+  const pathname = usePathname()
+  const active = isActive(pathname, href)
+
   return (
     <Link href={href} onClick={onClick}>
       <div
-        className={`select:bg-sunflowerYellow-light flex aspect-square flex-col items-center justify-center rounded-xl border-none p-2 text-charcoal transition-all hover:bg-sunflowerYellow-light ${active ? 'bg-sunflowerYellow-light' : 'bg-beige'}`}
+        className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all
+          ${active
+            ? 'bg-primary text-primary-ink'
+            : 'text-sidebar-muted hover:bg-sidebar-hover hover:text-sidebar-ink'
+          }`}
       >
-        <div className="w-7">{icon}</div>
-        <div>{title}</div>
+        {icon}
+        <span>{title}</span>
       </div>
     </Link>
   )

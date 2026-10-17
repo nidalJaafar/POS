@@ -1,7 +1,7 @@
 'use client'
 
 import { Order } from '@/lib/dto'
-import { currencyFormat, dateFormat } from '@/lib/util'
+import { currencyFormat, dateFormat, orderTotal } from '@/lib/util'
 import { useState } from 'react'
 import Grid from '../Grid'
 import ItemCard from '../item/ItemCard'
@@ -9,50 +9,50 @@ import Spinner from '../Spinner'
 import OrderControls from './OrderControls'
 import OrderStatus from './OrderStatus'
 
-interface Params {
-  order: Order
-}
-
-export default function OrderDetailsPage({ order }: Params) {
+export default function OrderDetailsPage({ order }: { order: Order }) {
   const [pending, setPending] = useState(false)
 
+  // The controls stay mounted (hidden) while an action runs: they own the transition,
+  // and unmounting them would leave the spinner up if it fails
   return (
-    <div className="min-w-full self-start">
-      <div className="mr-10 flex flex-col items-start justify-between gap-10 sm:flex-row sm:items-center sm:gap-0">
-        <div className="flex items-center justify-start gap-5">
-          <h3 className="text-2xl">#{order.id}</h3>
-          <OrderStatus status={order.status} />
-        </div>
-        {order.status === 'pending' && (
-          <OrderControls order={order} handlePending={setPending} />
-        )}
-      </div>
-      <p className="my-5">{dateFormat(order.created_at)}</p>
-      <p className="my-5 text-xl">Order Items</p>
-      {pending ? (
-        <div className="min-w-screen flex min-h-screen flex-col items-center justify-center">
+    <>
+      {pending && (
+        <div className="flex min-h-[60vh] items-center justify-center">
           <Spinner />
         </div>
-      ) : (
-        <>
+      )}
+      <div className={`${pending ? 'hidden' : 'flex'} flex-col gap-8`}>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <h2 className="text-2xl font-semibold">#{order.id}</h2>
+            <OrderStatus status={order.status} />
+          </div>
+          {order.status === 'pending' && (
+            <OrderControls order={order} handlePending={setPending} />
+          )}
+        </div>
+
+        <p className="text-sm text-ink-light">{dateFormat(order.created_at)}</p>
+
+        <div className="flex flex-col gap-4">
+          <h3 className="text-sm font-medium uppercase tracking-wide text-ink-light">
+            Order Items
+          </h3>
           <Grid>
             <>
               {order.items.map((item) => (
-                <ItemCard withQuantity key={item.id} item={item} />
+                <ItemCard key={item.id} item={item} withQuantity />
               ))}
             </>
           </Grid>
-          <p className="mt-5 text-xl">
-            Total Price:{' '}
-            {currencyFormat(
-              order.items.reduce(
-                (acc, item) => acc + item.quantity * item.price,
-                0
-              )
-            )}
+        </div>
+
+        <div className="flex justify-end">
+          <p className="text-lg font-semibold">
+            Total: {currencyFormat(orderTotal(order.items))}
           </p>
-        </>
-      )}
-    </div>
+        </div>
+      </div>
+    </>
   )
 }

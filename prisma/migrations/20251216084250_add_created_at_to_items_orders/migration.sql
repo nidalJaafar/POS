@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "items_orders" ADD COLUMN     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP;

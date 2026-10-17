@@ -2,186 +2,99 @@
 
 import { placeOrder } from '@/lib/actions'
 import { Item, OrderItem } from '@/lib/dto'
-import { XCircle } from 'lucide-react'
-import { useTransition, useEffect, useState } from 'react'
-import { CSSTransition } from 'react-transition-group'
+import { currencyFormat, orderTotal } from '@/lib/util'
+import { useTransition, useEffect, useRef, useState } from 'react'
 import NewOrderItemCard from './NewOrderItemCard'
-import { getLocalTimeZone, now, today } from '@internationalized/date'
-import { DatePicker } from '@nextui-org/date-picker'
+import { ShoppingBag } from 'lucide-react'
 
-interface Params {
-  isMobile: boolean
-  selectedItems: OrderItem[]
-  orderItemsMenuIsOpen: boolean
-  setOrderItemsMenuIsOpen: (state: boolean) => void
-  handleRemovedItem: (item: Item) => void
-  setSelectedItems: (state: OrderItem[]) => void
-  handlePending: (isPending: boolean) => void
+interface Props {
+  cartItems: OrderItem[]
+  onRemove: (item: Item) => void
+  onQuantityChange: (itemId: number, quantity: number) => void
+  setIsPending: (v: boolean) => void
+  onClose?: () => void
 }
 
-function OrderMenu({
-  isMobile = false,
-  setSelectedItems,
-  selectedItems,
-  handleRemovedItem,
-  isConditionValid,
-  setIsConditionValid,
-  xPressed,
-  setXPressed,
-  handlePending,
-}: {
-  isMobile?: boolean
-  setSelectedItems: (state: OrderItem[]) => void
-  selectedItems: OrderItem[]
-  handleRemovedItem: (item: Item) => void
-  isConditionValid: boolean
-  setIsConditionValid: (state: boolean) => void
-  xPressed: boolean
-  setXPressed: (state: boolean) => void
-  handlePending: (isPending: boolean) => void
-}) {
-  const [date, setDate] = useState(today(getLocalTimeZone()))
-  const [isPending, startTransition] = useTransition()
-  useEffect(() => {
-    handlePending(isPending)
-  }, [handlePending, isPending])
-  return (
-    <CSSTransition
-      key="order-items-menu-mobile"
-      in={isConditionValid}
-      classNames={isMobile ? 'slide-down' : 'side'}
-      unmountOnExit
-      timeout={500}
-      addEndListener={(node, done) => {
-        node.addEventListener('transitionend', done, false)
-      }}
-      onExited={() => {
-        if (xPressed) {
-          setSelectedItems([])
-        }
-      }}
-    >
-      <div
-        className={
-          isMobile
-            ? 'beige-scroll-bar fixed bottom-24 right-5 flex max-h-52 flex-col items-start justify-start gap-5 overflow-y-scroll rounded-xl bg-beige-light p-5 transition-opacity'
-            : 'flex flex-col items-start justify-start gap-10 rounded-xl bg-beige-light p-5'
-        }
-      >
-        <div className="flex w-full items-start justify-between">
-          <div className="text-xl font-semibold">New Order</div>
-          <button>
-            <XCircle
-              onClick={() => {
-                setIsConditionValid(false)
-                setXPressed(true)
-              }}
-            />
-          </button>
-        </div>
-        <DatePicker
-          classNames={{
-            calendar: 'bg-beige-light rounded-xl p-2',
-            selectorButton: 'outline-none',
-          }}
-          value={date}
-          onChange={(d) => setDate(d)}
-        />
-        {selectedItems.map((item) => (
-          <NewOrderItemCard
-            item={item}
-            key={item.id}
-            onRemove={handleRemovedItem}
-          />
-        ))}
-        <button
-          onClick={() =>
-            startTransition(() => placeOrder(selectedItems, date.toString()))
-          }
-          className="min-w-full self-center rounded-xl bg-sunflowerYellow-light py-3 text-xl font-semibold"
-        >
-          Place Order
-        </button>
-      </div>
-    </CSSTransition>
-  )
+// YYYY-MM-DD in the local time zone; toISOString() would give the UTC date
+function localDateString(): string {
+  const d = new Date()
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 }
 
 export default function OrderItemsMenu({
-  isMobile,
-  selectedItems,
-  orderItemsMenuIsOpen,
-  setOrderItemsMenuIsOpen,
-  handleRemovedItem,
-  setSelectedItems,
-  handlePending,
-}: Params) {
-  const [isConditionValid, setIsConditionValid] = useState<boolean>(false)
-  const [xPressed, setXPressed] = useState<boolean>(false)
-  useEffect(() => {
-    setXPressed(false)
-    setIsConditionValid(orderItemsMenuIsOpen && selectedItems.length > 0)
-  }, [orderItemsMenuIsOpen, selectedItems.length])
-  const [mobile, setMobile] = useState<boolean>(isMobile)
-  useEffect(() => {
-    setMobile(isMobile)
-  }, [isMobile])
+  cartItems,
+  onRemove,
+  onQuantityChange,
+  setIsPending,
+  onClose,
+}: Props) {
+  const [date, setDate] = useState(localDateString)
+  const [isPending, startTransition] = useTransition()
+  // isPending only disables the button after a re-render; this blocks a fast second click
+  const submitted = useRef(false)
+
+  useEffect(() => { setIsPending(isPending) }, [isPending, setIsPending])
+  // A failed order leaves the cart in place; allow trying again
+  useEffect(() => { if (!isPending) submitted.current = false }, [isPending])
+
+  const total = orderTotal(cartItems)
+
   return (
-    <>
-      <OrderMenu
-        isConditionValid={isConditionValid}
-        setIsConditionValid={setIsConditionValid}
-        xPressed={xPressed}
-        setXPressed={setXPressed}
-        isMobile={mobile}
-        selectedItems={selectedItems}
-        handleRemovedItem={handleRemovedItem}
-        setSelectedItems={setSelectedItems}
-        handlePending={handlePending}
+    <div className="flex w-80 flex-shrink-0 flex-col gap-5 rounded-2xl bg-surface p-7 self-start sticky top-8 shadow-sm">
+      <div className="flex items-center justify-between">
+        <h2 className="flex items-center gap-2 text-base font-semibold">
+          <ShoppingBag className="w-4" /> New Order
+        </h2>
+        {onClose && (
+          <button onClick={onClose} className="text-sm text-ink-light hover:text-ink">
+            Close
+          </button>
+        )}
+      </div>
+
+      <input
+        aria-label="Order date"
+        type="date"
+        value={date}
+        onChange={(e) => setDate(e.target.value)}
+        className="w-full rounded-xl bg-panel-light px-3 py-2 text-sm font-normal focus:outline-none focus:ring-2 focus:ring-primary"
       />
-      {mobile && (
+
+      {cartItems.length === 0 ? (
+        <p className="py-6 text-center text-sm text-ink-light">No items selected</p>
+      ) : (
+        <div className="flex flex-col gap-2">
+          {cartItems.map((item) => (
+            <NewOrderItemCard
+              key={item.id}
+              item={item}
+              onRemove={onRemove}
+              onQuantityChange={onQuantityChange}
+            />
+          ))}
+        </div>
+      )}
+
+      {cartItems.length > 0 && (
         <>
-          <CSSTransition
-            key="order-items-button"
-            in={selectedItems.length > 0}
-            classNames="side"
-            unmountOnExit
-            timeout={500}
-            addEndListener={(node, done) => {
-              node.addEventListener('transitionend', done, false)
+          <div className="flex justify-between text-sm font-medium">
+            <span>Total</span>
+            <span className="font-semibold">{currencyFormat(total)}</span>
+          </div>
+          <button
+            onClick={() => {
+              if (submitted.current) return
+              submitted.current = true
+              startTransition(() => placeOrder(cartItems, date))
             }}
+            disabled={isPending}
+            className="w-full rounded-xl bg-primary py-3 text-sm font-semibold text-primary-ink shadow-sm transition-all hover:bg-primary-dark disabled:opacity-60"
           >
-            <div className="fixed bottom-5 right-5 flex items-center justify-between gap-5 rounded-xl bg-sunflowerYellow-light p-5 text-xl font-semibold">
-              <CSSTransition
-                in={!orderItemsMenuIsOpen && !xPressed}
-                classNames="text"
-                unmountOnExit
-                timeout={100}
-              >
-                <button onClick={() => setOrderItemsMenuIsOpen(true)}>
-                  View Order
-                </button>
-              </CSSTransition>
-              <CSSTransition
-                in={orderItemsMenuIsOpen && !xPressed}
-                classNames="text"
-                unmountOnExit
-                timeout={100}
-              >
-                <button
-                  onClick={() => {
-                    setXPressed(false)
-                    setOrderItemsMenuIsOpen(false)
-                  }}
-                  className="fixed bottom-5 right-5 flex items-center justify-between gap-5 rounded-xl bg-sunflowerYellow-light p-5 text-xl font-semibold"
-                >
-                  Close
-                </button>
-              </CSSTransition>
-            </div>
-          </CSSTransition>
+            Place Order
+          </button>
         </>
       )}
-    </>
+    </div>
   )
 }

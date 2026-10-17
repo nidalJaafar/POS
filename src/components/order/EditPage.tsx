@@ -1,142 +1,143 @@
 'use client'
 import Grid from '@/components/Grid'
 import { updateOrderItemsAction } from '@/lib/actions'
-import { addItem, changeItemQuantity } from '@/lib/store/order/orderSlice'
-import { useAppDispatch, useAppSelector } from '@/lib/store/reduxHooks'
-import { Item } from '@/lib/dto'
-import { currencyFormat } from '@/lib/util'
-import { useRouter } from 'next/navigation'
+import { useItems } from '@/lib/context/ItemsContext'
+import { Item, Order, OrderItem } from '@/lib/dto'
+import { currencyFormat, orderTotal } from '@/lib/util'
 import { useState, useTransition } from 'react'
 import ItemCard from '../item/ItemCard'
 import { Minus, Plus } from 'lucide-react'
-import { OrderItem } from '../../lib/dto'
 import Spinner from '../Spinner'
 
-interface Params {
+function ItemGallery({
+  items,
+  orderItems,
+  onAdd,
+  onClose,
+}: {
   items: Item[]
-  handleModalState: (state: boolean) => void
-}
-
-function Modal({ items, handleModalState }: Params) {
-  const dispatch = useAppDispatch()
-  const order = useAppSelector((state) => state.order)
-
+  orderItems: OrderItem[]
+  onAdd: (item: OrderItem) => void
+  onClose: () => void
+}) {
   return (
-    <>
+    <div className="flex flex-col gap-4">
       <button
-        onClick={() => handleModalState(false)}
-        className="mb-5 rounded-xl bg-sunflowerYellow-light p-2"
+        onClick={onClose}
+        className="w-fit rounded-xl bg-primary px-4 py-2 text-sm font-medium"
       >
         Done
       </button>
       <Grid>
         <>
-          {items.map((item) => {
-            return (
-              <ItemCard
-                key={item.id}
-                item={item}
-                isDisabled={
-                  order.items.filter((i) => i.id === item.id).length != 0
-                }
-                onSelect={() => {
-                  const orderItem: OrderItem = { ...item, quantity: 1 }
-                  dispatch(addItem(orderItem))
-                }}
-              />
-            )
-          })}
+          {items.map((item) => (
+            <ItemCard
+              key={item.id}
+              item={item}
+              isDisabled={orderItems.some((i) => i.id === item.id)}
+              onSelect={() => onAdd({ ...item, quantity: 1 })}
+            />
+          ))}
         </>
       </Grid>
-    </>
+    </div>
   )
 }
 
-export default function EditPage({ items }: { items: Item[] }) {
-  items = items.filter((item) => !item.deleted)
+export default function EditPage({ order: initialOrder }: { order: Order }) {
+  const { items: allItems } = useItems()
+  const items = allItems.filter((item) => !item.deleted)
+
+  const [orderItems, setOrderItems] = useState<OrderItem[]>(initialOrder.items)
+  const [showGallery, setShowGallery] = useState(false)
   const [isPending, startTransition] = useTransition()
-  const [modalOpen, setModalOpen] = useState<boolean>(false)
-  const order = useAppSelector((state) => state.order)
-  const dispatch = useAppDispatch()
-  const router = useRouter()
-  if (order.items.length === 0) {
-    router.push(`/orders/${order.id}`)
-    return
-  }
-  function handleModalOpen(open: boolean) {
-    setModalOpen(open)
-  }
-  function handleMinus(item: OrderItem) {
-    dispatch(
-      changeItemQuantity({ itemId: item.id, quantity: item.quantity - 1 })
+
+  function adjustQuantity(itemId: number, delta: number) {
+    setOrderItems((prev) =>
+      prev.flatMap((item) => {
+        if (item.id !== itemId) return [item]
+        const next = item.quantity + delta
+        return next < 1 ? [] : [{ ...item, quantity: next }]
+      })
     )
   }
 
-  function handlePlus(item: OrderItem) {
-    dispatch(
-      changeItemQuantity({ itemId: item.id, quantity: item.quantity + 1 })
-    )
+  function addItem(item: OrderItem) {
+    setOrderItems((prev) => [...prev, item])
   }
+
+  const order: Order = { ...initialOrder, items: orderItems }
+
   return (
-    <div className="relative min-w-full self-start">
-      <div className="flex items-center justify-start gap-5">
-        <h3 className="text-2xl">#{order.id}</h3>
+    <div className="flex flex-col gap-6">
+      <div className="flex items-center gap-3">
+        <h2 className="text-2xl font-semibold">#{initialOrder.id}</h2>
+        <span className="text-sm text-ink-light">Editing</span>
       </div>
-      <p className="my-5 text-xl">Order Items</p>
-      {modalOpen ? (
-        <Modal items={items} handleModalState={handleModalOpen} />
+
+      {showGallery ? (
+        <ItemGallery
+          items={items}
+          orderItems={orderItems}
+          onAdd={(item) => { addItem(item); setShowGallery(false) }}
+          onClose={() => setShowGallery(false)}
+        />
       ) : isPending ? (
-        <div className="min-w-screen flex min-h-screen flex-col items-center justify-center">
+        <div className="flex min-h-[60vh] items-center justify-center">
           <Spinner />
         </div>
       ) : (
         <>
+          <h3 className="text-sm font-medium uppercase tracking-wide text-ink-light">Order Items</h3>
           <Grid>
             <>
-              {order.items.map((item) => (
+              {orderItems.map((item) => (
                 <ItemCard key={item.id} item={item}>
-                  <div className="flex w-20 items-center justify-center gap-2">
-                    <Minus
-                      className="cursor-pointer"
-                      onClick={() => handleMinus(item)}
-                    />
-                    <div className="w-5 text-center">{item.quantity}</div>
-                    <Plus
-                      className="cursor-pointer"
-                      onClick={() => handlePlus(item)}
-                    />
+                  <div className="flex items-center gap-2 py-1">
+                    <button
+                      aria-label={`Decrease ${item.name}`}
+                      onClick={(e) => { e.stopPropagation(); adjustQuantity(item.id, -1) }}
+                      className="flex h-6 w-6 items-center justify-center rounded-full bg-panel hover:bg-panel-dark transition-colors"
+                    >
+                      <Minus className="w-3" />
+                    </button>
+                    <span className="w-5 text-center text-sm font-medium">{item.quantity}</span>
+                    <button
+                      aria-label={`Increase ${item.name}`}
+                      onClick={(e) => { e.stopPropagation(); adjustQuantity(item.id, 1) }}
+                      className="flex h-6 w-6 items-center justify-center rounded-full bg-panel hover:bg-panel-dark transition-colors"
+                    >
+                      <Plus className="w-3" />
+                    </button>
                   </div>
                 </ItemCard>
               ))}
-              <div
-                onClick={() => handleModalOpen(true)}
-                className="flex h-full w-full cursor-pointer flex-col items-center justify-around rounded-xl bg-beige-light px-10 py-2 transition-all hover:bg-sunflowerYellow-light"
+
+              <button
+                onClick={() => setShowGallery(true)}
+                className="flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-panel-dark p-6 text-ink-light transition-all hover:border-primary hover:text-ink"
               >
-                <div className="relative my-3 mb-3 flex aspect-square w-32 items-center justify-center rounded-lg border-2 border-dashed border-charcoal sm:w-40">
-                  <Plus className="h-32 w-32 text-charcoal sm:h-40 sm:w-40" />
-                </div>
-                <div className="max-w-36 overflow-hidden text-ellipsis whitespace-nowrap text-center text-lg">
-                  Add Item
-                </div>
-              </div>
+                <Plus className="w-8 h-8" />
+                <span className="text-sm">Add Item</span>
+              </button>
             </>
           </Grid>
-          <p className="mt-5 text-xl">
-            Total Price:{' '}
-            {currencyFormat(
-              order.items.reduce(
-                (acc, item) => acc + item.quantity * item.price,
-                0
-              )
-            )}
-          </p>
-          <form
-            action={() => startTransition(() => updateOrderItemsAction(order))}
-          >
-            <button className="mt-5 rounded-xl bg-sunflowerYellow-light p-2">
-              Save
-            </button>
-          </form>
+
+          <div className="flex items-center justify-between">
+            <p className="text-lg font-semibold">
+              Total: {currencyFormat(orderTotal(orderItems))}
+            </p>
+            <form action={() => startTransition(() => updateOrderItemsAction(order))}>
+              <button
+                type="submit"
+                disabled={orderItems.length === 0}
+                title={orderItems.length === 0 ? 'Add at least one item' : undefined}
+                className="rounded-xl bg-primary px-6 py-2.5 text-sm font-semibold text-primary-ink shadow-sm transition-all hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Save Changes
+              </button>
+            </form>
+          </div>
         </>
       )}
     </div>

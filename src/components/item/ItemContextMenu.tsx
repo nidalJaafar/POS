@@ -1,10 +1,8 @@
 'use client'
 import { updateIsDeleted } from '@/lib/actions'
 import { Item } from '@/lib/dto'
-import { addItemToMenu, removeItemFromMenu } from '@/lib/store/item/itemSlice'
-import { useAppDispatch } from '@/lib/store/reduxHooks'
+import { useItems } from '@/lib/context/ItemsContext'
 import { Check, EllipsisVertical, Pencil, Trash } from 'lucide-react'
-
 import React, { useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 
@@ -16,106 +14,92 @@ interface Params {
   deleted: boolean
 }
 
-export default function ItemContextMenu({
-  item,
-  isOpen,
-  handleIsOpen,
-  onEdit,
-  deleted,
-}: Params) {
-  const dispatch = useAppDispatch()
-  const ref = useRef<HTMLDivElement | null>(null)
+export default function ItemContextMenu({ item, isOpen, handleIsOpen, onEdit, deleted }: Params) {
+  const { toggleItemDeleted } = useItems()
+  const portalRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     const div = document.createElement('div')
-    ref.current = div
-    document.body.appendChild(ref.current)
-
-    return () => {
-      if (ref.current) {
-        document.body.removeChild(ref.current)
-      }
-    }
+    portalRef.current = div
+    document.body.appendChild(div)
+    return () => { document.body.removeChild(div) }
   }, [])
 
-  function handleClick(e: React.MouseEvent<HTMLDivElement>) {
+  function handleClick(e: React.MouseEvent) {
     e.stopPropagation()
     handleIsOpen()
   }
 
-  async function handleDelete(id: number) {
+  async function handleDelete() {
+    toggleItemDeleted(item.id, true)
     try {
-      dispatch(removeItemFromMenu(id))
-      await updateIsDeleted(id, true)
-    } catch (error) {
-      console.error('Error deleting item:', error)
-      dispatch(addItemToMenu(id))
+      await updateIsDeleted(item.id, true)
+    } catch {
+      toggleItemDeleted(item.id, false)
     }
   }
 
-  async function handleRestore(id: number) {
+  async function handleRestore() {
+    toggleItemDeleted(item.id, false)
     try {
-      dispatch(addItemToMenu(id))
-      await updateIsDeleted(id, false)
-    } catch (error) {
-      console.error('Error restoring item:', error)
-      dispatch(removeItemFromMenu(id))
+      await updateIsDeleted(item.id, false)
+    } catch {
+      toggleItemDeleted(item.id, true)
     }
   }
 
-  function handleEdit(item: Item) {
+  function handleEdit() {
     if (!onEdit) return
     onEdit(item)
     window.scrollTo(0, 0)
   }
 
-  // Ensure the portal is created only if ref.current is defined
   return (
     <>
-      {isOpen &&
-        ref.current &&
-        createPortal(
-          <div
-            className={`z-5 fixed inset-0 cursor-pointer`}
-            onClick={handleClick}
-          ></div>,
-          ref.current
-        )}
+      {isOpen && portalRef.current && createPortal(
+        <div className="fixed inset-0 z-10 cursor-pointer" onClick={handleClick} />,
+        portalRef.current
+      )}
       <div
+        role="button"
+        aria-label={`Actions for ${item.name}`}
         onClick={handleClick}
-        className={`relative w-fit cursor-pointer self-end rounded-full p-1 hover:bg-sunflowerYellow-light ${isOpen ? 'bg-sunflowerYellow-light' : 'bg-beige'}`}
+        className={`relative w-fit cursor-pointer self-end rounded-full p-1 transition-colors hover:bg-primary-light ${
+          isOpen ? 'bg-primary-light' : 'bg-panel'
+        }`}
       >
-        <EllipsisVertical className="w-5" />
+        <EllipsisVertical className="w-4" />
         <div
-          className={`absolute -right-5 top-8 z-10 transform flex-col items-center justify-center transition-opacity duration-100 ease-in-out ${
-            isOpen
-              ? 'translate-y-0 opacity-100'
-              : 'pointer-events-none -z-0 opacity-0'
+          className={`absolute -right-5 top-8 z-20 flex flex-col transition-opacity duration-100 ${
+            isOpen ? 'opacity-100' : 'pointer-events-none opacity-0'
           }`}
         >
           {deleted ? (
-            <div
-              onClick={() => handleRestore(item.id)}
-              className="flex w-8 cursor-pointer items-center justify-center rounded-xl bg-mintGreen p-2"
+            <button
+              aria-label={`Restore ${item.name}`}
+              onClick={handleRestore}
+              className="flex w-8 items-center justify-center rounded-xl bg-success p-2 text-success-ink"
             >
-              <Check />
-            </div>
+              <Check className="w-4" />
+            </button>
           ) : (
             <>
               {onEdit && (
-                <div
-                  className="flex w-8 cursor-pointer items-center justify-center rounded-t-xl bg-skyBlue p-2"
-                  onClick={() => handleEdit(item)}
+                <button
+                  aria-label={`Edit ${item.name}`}
+                  onClick={handleEdit}
+                  className="flex w-8 items-center justify-center rounded-t-xl bg-primary-light p-2"
                 >
-                  <Pencil />
-                </div>
+                  <Pencil className="w-4" />
+                </button>
               )}
-              <div
-                className="flex w-8 cursor-pointer items-center justify-center rounded-b-xl bg-pastelPink p-2"
-                onClick={() => handleDelete(item.id)}
+              <button
+                aria-label={`Delete ${item.name}`}
+                onClick={handleDelete}
+                className={`flex w-8 items-center justify-center bg-danger text-danger-ink p-2 ${onEdit ? 'rounded-b-xl' : 'rounded-xl'}`}
               >
-                <Trash />
-              </div>
+                <Trash className="w-4" />
+              </button>
             </>
           )}
         </div>

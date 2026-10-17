@@ -2,128 +2,56 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Colors (Forest Sidebar). Every color is a logo color or a tint/shade of one:
+ *   green #214934 · yellow #ffb300 · pink #ed9cac · cream #ffefb5
+ * Values are "R G B" so Tailwind opacity modifiers like /40 work; tailwind.config.ts
+ * maps the roles (page, ink, primary, sidebar...) onto these variables.
+ */
+:root {
+  --page: 255 253 245;
+  --surface: 255 255 255;
+  --panel-light: 255 253 245;
+  --panel: 255 246 214;
+  --panel-dark: 240 227 176;
+  /* Near-black text with a slight green tint */
+  --ink-light: 74 82 77;
+  --ink: 22 26 23;
+  --ink-dark: 11 13 12;
+  --primary-light: 255 224 138;
+  --primary: 255 179 0;
+  --primary-dark: 230 161 0;
+  --primary-ink: 22 26 23;
+  --success: 33 73 52;
+  --success-ink: 255 239 181;
+  --danger: 237 156 172;
+  --danger-ink: 22 26 23;
+  --sidebar: 33 73 52;
+  --sidebar-ink: 255 239 181;
+  --sidebar-muted: 196 214 202;
+  --sidebar-hover: 44 92 67;
+  --dots: 240 227 176;
+  /* Main chart color (bars, first line) */
+  --chart: 33 73 52;
+  color-scheme: light;
+}
+
 @layer utilities {
-      /* Hide scrollbar for Chrome, Safari and Opera */
-      .no-scrollbar::-webkit-scrollbar {
-          display: none;
-      }
-     /* Hide scrollbar for IE, Edge and Firefox */
-      .no-scrollbar {
-          -ms-overflow-style: none;  /* IE and Edge */
-          scrollbar-width: none;  /* Firefox */
-    }
-  }
-
-.slide-enter {
-  max-height: 0;
-  opacity: 0;
-  overflow: hidden;
-}
-.slide-enter-active {
-  max-height: 500px; /* Set a reasonable max height */
-  opacity: 1;
-  transition: max-height 300ms ease-in-out, opacity 100ms ease-in-out;
-}
-.slide-exit {
-  max-height: 500px; /* Same as enter active */
-  opacity: 1;
-}
-.slide-exit-active {
-  max-height: 0;
-  opacity: 0;
-  transition: max-height 300ms ease-in-out, opacity 100ms ease-in-out;
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 }
 
-/* Entering animation */
-.side-enter {
-  transform: translateX(100%); /* Start off-screen to the left */
-  opacity: 0;                   /* Initially hidden */
+::-webkit-scrollbar { width: 0.5rem; height: 16px; }
+::-webkit-scrollbar-track { border-radius: 100%; background: rgb(var(--page)); }
+::-webkit-scrollbar-thumb { background: rgb(var(--primary-light)); border-radius: 100vh; }
+::-webkit-scrollbar-thumb:hover { background: rgb(var(--primary)); }
+
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
 }
 
-.side-enter-active {
-  transform: translateX(0);     /* Move to the original position */
-  opacity: 1;                   /* Fully visible */
-  transition: transform 300ms ease-in-out, opacity 100ms ease-in-out;
-}
-
-/* Exiting animation */
-.side-exit {
-  transform: translateX(0);      /* Stay in the original position */
-  opacity: 1;                    /* Fully visible */
-}
-
-.side-exit-active {
-  transform: translateX(100%);   /* Move off-screen to the right */
-  opacity: 0;                    /* Fade out */
-  transition: transform 300ms ease-in-out, opacity 100ms ease-in-out;
-}
-
-.slide-down-enter {
-  transform: translateY(100%); /* Start off-screen to the left */
-  opacity: 0;
-}
-.slide-down-enter-active {
-  transform: translateY(0);     /* Move to the original position */
-  opacity: 1;                   /* Fully visible */
-  transition: transform 300ms ease-in-out, opacity 3000ms ease-in-out;
-}
-.slide-down-exit {
-  transform: translateY(0); /* Start off-screen to the left */
-  opacity: 1;
-}
-.slide-down-exit-active {
-  transform: translateY(100%);   /* Move off-screen to the right */
-  opacity: 0;                    /* Fade out */
-  transition: transform 300ms ease-in-out, opacity 100ms ease-in-out;
-}
-
-/* styles.css */
-
-.text-enter {
-  opacity: 0;
-  transform: scale(0.9);
-}
-.text-enter-active {
-  opacity: 1;
-  transform: scale(1);
-  transition: opacity 300ms, transform 300ms;
-}
-
-.text-exit {
-  opacity: 1;
-  transform: scale(1);
-}
-.text-exit-active {
-  opacity: 0;
-  transform: scale(0.9);
-  transition: opacity 300ms, transform 300ms;
-}
-
-
-::-webkit-scrollbar {
-  width: 0.5rem;
-  height: 16px;
-}
-
-::-webkit-scrollbar-track {
-  border-radius: 100%;
-  background: #FFFFFF;
-}
-.beige-scroll-bar::-webkit-scrollbar-track {
-  border-radius: 100vh;
-  background: #FBF6EF;
-}
-
-::-webkit-scrollbar-thumb {
-  background: #FCE2A6;
-  border-radius: 100vh;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: #E5A643;
-}
-
-
-html {
-  scroll-behavior: smooth;
+body {
+  background-image: radial-gradient(rgb(var(--dots) / 0.45) 0.6px, transparent 0.7px);
+  background-size: 4px 4px;
 }

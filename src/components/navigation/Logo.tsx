@@ -1,11 +1,12 @@
 import Image from 'next/image'
-import logo from '../../../public/logo.png'
+import logo from '../../../public/logo-light.png'
 import Link from 'next/link'
 
+// Cream lettering: the logo sits on the dark green sidebar
 function Logo() {
   return (
     <Link href="/">
-      <Image src={logo} width={120} height={120} alt="logo"></Image>
+      <Image src={logo} alt="Sunflower Crafts" className="h-auto w-44" priority />
     </Link>
   )
 }

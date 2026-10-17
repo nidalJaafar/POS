@@ -2,6 +2,7 @@
 
 import { Order } from '@/lib/dto'
 import 'chart.js/auto'
+import { applyChartTheme, themeColor } from '@/lib/theme-colors'
 import { Line } from 'react-chartjs-2'
 
 interface Params {
@@ -9,9 +10,11 @@ interface Params {
   yearMap: [number, [number, Order[]][]][]
 }
 
-const colors = ['#C7933D', '#F7C15B']
 
 export default function LineChart({ labels, yearMap }: Params) {
+  applyChartTheme()
+  // The two most recent years alternate between the theme's text and primary colors
+  const colors = [themeColor('chart'), themeColor('primary')]
   const yearMonthOrder: {
     label: string
     data: number[]

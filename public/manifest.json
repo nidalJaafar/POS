@@ -1,8 +1,8 @@
 {
   "name": "Sunflower Crafts POS",
   "short_name": "POS",
-  "theme_color": "#ffffff",
-  "background_color": "#ffffff",
+  "theme_color": "#214934",
+  "background_color": "#fffdf5",
   "display": "standalone",
   "orientation": "natural",
   "scope": "/",

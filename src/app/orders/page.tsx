@@ -1,8 +1,19 @@
 import PendingOrders from '@/components/order/PendingOrders'
-import { getPendingOrders } from '@/lib/supabase/supabase-operations'
+import { getPendingOrders } from '@/lib/prisma/operations'
 
-export default async function page() {
-  const orders = await getPendingOrders()
+interface Props {
+  searchParams: { page?: string; period?: string; sort?: string; from?: string; to?: string }
+}
 
-  return <PendingOrders orders={orders} />
+export default async function page({ searchParams }: Props) {
+  const page = Math.max(1, Number(searchParams.page) || 1)
+  const { orders, total } = await getPendingOrders(page, {
+    period: searchParams.period,
+    sort: searchParams.sort,
+    from: searchParams.from,
+    to: searchParams.to,
+  })
+  const totalPages = Math.ceil(total / 24)
+
+  return <PendingOrders orders={orders} currentPage={page} totalPages={totalPages} />
 }

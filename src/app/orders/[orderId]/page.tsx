@@ -1,5 +1,6 @@
+import { notFound } from 'next/navigation'
 import OrderDetailsPage from '@/components/order/OrderDetailsPage'
-import { getOrder } from '@/lib/supabase/supabase-operations'
+import { findOrder, parseOrderId } from '@/lib/prisma/operations'
 
 interface Params {
   params: {
@@ -8,6 +9,8 @@ interface Params {
 }
 
 export default async function page({ params }: Params) {
-  const order = await getOrder(Number(params.orderId))
+  const orderId = parseOrderId(params.orderId)
+  const order = orderId ? await findOrder(orderId) : null
+  if (!order) notFound()
   return <OrderDetailsPage order={order} />
 }

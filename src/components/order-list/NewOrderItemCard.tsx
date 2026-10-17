@@ -3,53 +3,51 @@
 import Image from 'next/image'
 import { currencyFormat } from '@/lib/util'
 import { Item, OrderItem } from '@/lib/dto'
-import { useState } from 'react'
-import { CircleX, Minus, Plus } from 'lucide-react'
+import { Minus, Plus, X } from 'lucide-react'
 
 interface Props {
   item: OrderItem
   onRemove: (item: Item) => void
+  onQuantityChange: (itemId: number, quantity: number) => void
 }
 
-function NewOrderItemCard({ item, onRemove }: Props) {
-  const [quantity, setQuantity] = useState(1)
-  const price = quantity * item.price
-
-  function handleMinus() {
-    if (quantity === 1) onRemove(item)
-    else setQuantity((q) => q - 1)
-    item.quantity -= 1
-  }
-
-  function handlePlus() {
-    setQuantity((q) => q + 1)
-    item.quantity += 1
-  }
-
+function NewOrderItemCard({ item, onRemove, onQuantityChange }: Props) {
   return (
-    <div className="flex min-w-full items-start justify-between rounded-xl bg-beige p-5">
-      <div className="relative mr-5 aspect-square w-20 self-center">
+    <div className="flex items-center gap-3 rounded-xl bg-panel p-3">
+      <div className="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-lg">
         <Image src={item.image} alt={item.name} fill className="object-cover" />
       </div>
-      <div className="flex flex-col items-center justify-center gap-10">
-        <div className="w-24 overflow-hidden text-ellipsis whitespace-nowrap text-center">
+
+      <div className="flex flex-1 flex-col gap-1 min-w-0">
+        <span className="overflow-hidden text-ellipsis whitespace-nowrap text-sm font-medium">
           {item.name}
-        </div>
-        <div className="flex w-20 items-center justify-between gap-2">
-          <Minus className="cursor-pointer" onClick={handleMinus} />
-          <div className="w-14 text-center">{quantity}</div>
-          <Plus className="cursor-pointer" onClick={handlePlus} />
-        </div>
+        </span>
+        <span className="text-xs font-semibold text-ink">
+          {currencyFormat(item.quantity * item.price)}
+        </span>
       </div>
-      <div className="flex flex-col items-center gap-10">
-        <div className="w-14 justify-self-start text-center">
-          {currencyFormat(price)}
-        </div>
-        <CircleX
-          className="w-7 cursor-pointer"
-          onClick={() => onRemove(item)}
-        />
+
+      <div className="flex items-center gap-1">
+        <button
+          aria-label={`Decrease ${item.name}`}
+          onClick={() => onQuantityChange(item.id, item.quantity - 1)}
+          className="flex h-6 w-6 items-center justify-center rounded-full bg-panel-light hover:bg-panel-dark transition-colors"
+        >
+          <Minus className="w-3" />
+        </button>
+        <span className="w-6 text-center text-sm font-medium">{item.quantity}</span>
+        <button
+          aria-label={`Increase ${item.name}`}
+          onClick={() => onQuantityChange(item.id, item.quantity + 1)}
+          className="flex h-6 w-6 items-center justify-center rounded-full bg-panel-light hover:bg-panel-dark transition-colors"
+        >
+          <Plus className="w-3" />
+        </button>
       </div>
+
+      <button aria-label={`Remove ${item.name}`} onClick={() => onRemove(item)} className="text-ink-light hover:text-ink transition-colors">
+        <X className="w-4" />
+      </button>
     </div>
   )
 }

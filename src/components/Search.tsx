@@ -1,43 +1,34 @@
 'use client'
-import { Item } from '@/lib/dto'
-import { useAppSelector } from '@/lib/store/reduxHooks'
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react'
+import { Search as SearchIcon } from 'lucide-react'
 
 interface Params {
-  handleFilteredItems: (value: Item[]) => void
+  onSearch: (query: string) => void
+  placeholder?: string
+  defaultValue?: string
 }
 
-export default function Search({ handleFilteredItems }: Params) {
-  const items = useAppSelector((state) => state.items)
-  const [search, setSearch] = useState<string>('')
+export default function Search({ onSearch, placeholder = 'Search', defaultValue = '' }: Params) {
+  const [query, setQuery] = useState(defaultValue)
 
-  const filter = useCallback(
-    (value: string) => {
-      return items.filter((item: Item) =>
-        item.name.toLowerCase().includes(value.toLowerCase())
-      )
-    },
-    [items]
-  )
+  // Follow the URL when it changes elsewhere (e.g. the Completed tab clears ?q=)
+  useEffect(() => setQuery(defaultValue), [defaultValue])
 
-  useEffect(() => {
-    if (!search) return
-    const timeoutId = setTimeout(() => {
-      handleFilteredItems(filter(search))
-    }, 300)
-    return () => clearTimeout(timeoutId)
-  }, [filter, handleFilteredItems, search])
-
-  function handleSearch(e: React.ChangeEvent<HTMLInputElement>) {
-    setSearch(e.target.value)
+  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
+    setQuery(e.target.value)
+    onSearch(e.target.value)
   }
+
   return (
-    <input
-      className="w-full rounded-xl bg-beige-light p-3 focus:outline-0 sm:w-fit"
-      type="text"
-      value={search}
-      onChange={handleSearch}
-      placeholder="Search"
-    />
+    <div className="relative w-full sm:w-64">
+      <SearchIcon className="absolute left-3 top-1/2 w-4 -translate-y-1/2 text-ink-light" />
+      <input
+        className="w-full rounded-xl bg-surface px-4 py-3 pl-9 text-sm font-normal placeholder:text-ink-light shadow-sm focus:outline-none focus:ring-2 focus:ring-primary"
+        type="text"
+        value={query}
+        onChange={handleChange}
+        placeholder={placeholder}
+      />
+    </div>
   )
 }

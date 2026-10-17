@@ -1,7 +1,6 @@
 'use server'
 import { Order, OrderItem } from '@/lib/dto'
 import {
-  addItemImage,
   addOrder,
   changeOrderStatus,
   deleteOrder,
@@ -9,7 +8,8 @@ import {
   updateDeletedItem,
   updateOrderItems,
   upsertItem,
-} from '@/lib/supabase/supabase-operations'
+} from '@/lib/prisma/operations'
+import { addItemImage } from '@/lib/storage'
 import { revalidatePath } from 'next/cache'
 import { redirect, RedirectType } from 'next/navigation'
 import sendToThermalPrinter from './printer'
@@ -27,10 +27,15 @@ export async function deletePendingOrder(orderId: number) {
 }
 
 export async function completePendingOrder(orderId: number) {
-  await changeOrderStatus(orderId)
-  const order = await getOrder(orderId)
-  if (process.env.PRINTER_VID && process.env.PRINTER_PID)
-    await sendToThermalPrinter(order)
+  const completed = await changeOrderStatus(orderId)
+  if (completed && process.env.PRINTER_VID && process.env.PRINTER_PID) {
+    // The order is already completed; a printer problem must not block the cashier
+    try {
+      await sendToThermalPrinter(await getOrder(orderId))
+    } catch (error) {
+      console.error(`Receipt for order ${orderId} failed to print:`, error)
+    }
+  }
   revalidatePath('/orders')
   revalidatePath('/orders/completed')
   revalidatePath(`/orders/${orderId}`)
@@ -47,32 +52,21 @@ export async function updateOrderItemsAction(updatedOrder: Order) {
 
 export async function addItemToMenu(formData: FormData) {
   const image = formData.get('image')
-  const name = formData.get('name') as string
-  const price = Number(formData.get('price'))
+  const name = String(formData.get('name') ?? '').trim()
+  const rawPrice = String(formData.get('price') ?? '').trim()
+  const price = Number(rawPrice)
   const id = Number(formData.get('id'))
 
-  if (!image || !name || !price) {
-    throw new Error('Missing required fields')
-  }
-  const imageUrl = typeof image === 'string' ? image : await addItemImage(image)
+  if (!image || !name || !rawPrice) throw new Error('Missing required fields')
+  if (!Number.isFinite(price) || price < 0) throw new Error('Price must be zero or more')
 
-  const item: {
-    image: string
-    name: string
-    price: number
-    deleted: boolean
-    id?: number
-  } = {
-    image: imageUrl,
-    name,
-    price,
-    deleted: false,
-  }
-  if (id) item.id = id
-  await upsertItem(item)
+  const imageUrl = typeof image === 'string' ? image : await addItemImage(image)
+  await upsertItem({ image: imageUrl, name, price, deleted: false, ...(id ? { id } : {}) })
   revalidatePath('/')
+  revalidatePath('/dashboard')
 }
 
 export async function updateIsDeleted(itemId: number, isDeleted: boolean) {
   await updateDeletedItem(itemId, isDeleted)
+  revalidatePath('/')
 }
