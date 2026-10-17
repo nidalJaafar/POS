@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  # The release workflow runs the same checks before packaging
+  workflow_call:
+
+jobs:
+  test:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # Windows matches the shop laptop; Ubuntu matches development
+        os: [ubuntu-latest, windows-latest]
+    env:
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # Same major version the release bundles for the shop laptop
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # Linux: the test database runs in Docker (scripts/test-db.js does this itself)
+
+      # Windows runners can't run Linux containers, but have PostgreSQL installed:
+      # start a throwaway cluster on the test port and tell the tests to use it
+      - name: Start PostgreSQL on port 55432 (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $data = Join-Path $env:RUNNER_TEMP 'pgdata'
+          Set-Content -Path (Join-Path $env:RUNNER_TEMP 'pwfile') -Value 'postgres' -NoNewline
+          & "$env:PGBIN\initdb.exe" -D $data -U postgres -A md5 --pwfile=(Join-Path $env:RUNNER_TEMP 'pwfile') --encoding=UTF8
+          & "$env:PGBIN\pg_ctl.exe" -D $data -o "-p 55432" -l (Join-Path $env:RUNNER_TEMP 'pg.log') start
+          "TEST_DB_EXTERNAL=1" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report-${{ matrix.os }}
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
